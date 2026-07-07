@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>棋子大冒险 · 围棋启蒙 v0.2</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#FFF7E8; color:#4a3318;
+    display:flex; flex-direction:column; align-items:center; user-select:none;
+  }
+  header { width:100%; max-width:540px; display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+  header .ttl { font-size:21px; font-weight:700; color:#B5651D; }
+  .pill { border:none; background:#FFE3B3; color:#7a4a12; font-size:17px; padding:8px 13px; border-radius:999px; cursor:pointer; font-weight:600; }
+  .pill:active { transform:scale(.95); }
+  main { width:100%; max-width:540px; flex:1; display:flex; flex-direction:column; align-items:center; padding:0 12px 24px; }
+  .screen { width:100%; display:none; flex-direction:column; align-items:center; }
+  .screen.on { display:flex; }
+  #pathbar { width:100%; display:flex; align-items:center; gap:6px; padding:10px 14px; background:#fff;
+    border-radius:16px; margin:6px 0 10px; overflow-x:auto; }
+  .pdot { min-width:12px; height:12px; border-radius:50%; background:#E4DFD4; cursor:pointer; }
+  .pdot.done { background:#7CC08F; }
+  .pdot.cur { background:#F5B942; box-shadow:0 0 0 4px rgba(245,185,66,.25); }
+  .pline { flex:1; height:3px; min-width:8px; background:#EFEAE0; border-radius:2px; }
+  .pline.done { background:#BFE3C8; }
+  #pathlabel { font-size:13px; color:#a98a52; white-space:nowrap; font-weight:700; margin-left:4px; }
+  .chap { width:100%; background:#fff; border-radius:22px; padding:14px 16px; margin:8px 0; border:3px solid #eee; }
+  .chap h2 { font-size:19px; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .chap h2 .cnt { margin-left:auto; font-size:15px; color:#b08a4f; }
+  .nodes { display:flex; gap:10px; flex-wrap:wrap; }
+  .node {
+    width:74px; height:74px; border-radius:50%; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; cursor:pointer; font-size:12px; font-weight:700;
+    color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.15);
+  }
+  .node .ic { font-size:24px; }
+  .node:active { transform:scale(.94); }
+  .node.lock { background:#d8cdbb !important; color:#a99; box-shadow:none; }
+  .node.done::after { content:"⭐"; font-size:13px; margin-top:-2px; }
+  #bubble {
+    width:100%; background:#fff; border:3px solid #9CD08F; border-radius:18px;
+    padding:11px 14px; font-size:18px; line-height:1.5; margin:4px 0 10px;
+    display:flex; gap:10px; align-items:center; min-height:62px;
+  }
+  #bubble .panda { font-size:30px; }
+  canvas { display:block; border-radius:14px; box-shadow:0 4px 14px rgba(120,80,20,.25); cursor:pointer; }
+  .btnrow { display:flex; gap:9px; margin-top:13px; flex-wrap:wrap; justify-content:center; }
+  .big { border:none; border-radius:15px; font-size:18px; font-weight:700; padding:11px 18px; cursor:pointer; color:#fff; background:#56A95C; }
+  .big.alt { background:#E8924A; }
+  .big.gray { background:#bba98c; }
+  .big.blue { background:#5B8DD9; }
+  .big:active { transform:scale(.95); }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  #modal.on { display:flex; }
+  #modal .box { background:#fff; border-radius:20px; max-width:460px; width:100%; max-height:84vh; overflow:auto; padding:20px; font-size:15px; line-height:1.7; }
+  #modal h3 { color:#B5651D; margin:10px 0 6px; }
+  #modal a { color:#2a7ae2; word-break:break-all; }
+  .task { display:flex; align-items:center; gap:8px; background:#FFF7E8; border-radius:12px; padding:8px 12px; margin:6px 0; }
+  .task input { width:20px; height:20px; }
+  .res { background:#F4F9F1; border-radius:12px; padding:8px 12px; margin:6px 0; }
+  .res .lt { color:#999; font-size:13px; }
+  .gloss { background:#FFF1C9; border-radius:12px; padding:8px 12px; margin:6px 0; font-size:14px; }
+  .confetti { position:fixed; top:-40px; font-size:28px; z-index:99; animation:fall 1.4s ease-in forwards; pointer-events:none; }
+  @keyframes fall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
+  .shake { animation:shk .3s; }
+  @keyframes shk { 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  #world { position:relative; width:100%; }
+  #plaza { position:relative; width:100%; aspect-ratio:16/9; border-radius:18px; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.28); touch-action:none; cursor:pointer; background:#CFE8F7; }
+  #plazaBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #rab { position:absolute; height:30%; bottom:4%; left:50%; transform:translateX(-50%); transition:left 1.05s ease,transform .2s ease; pointer-events:none; filter:drop-shadow(0 5px 5px rgba(0,0,0,.18)); animation:bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 50%{ margin-bottom:6px; } }
+  .hot { position:absolute; transform:translate(-50%,-50%); background:rgba(255,255,255,.84); border:2px solid #fff; border-radius:999px; padding:5px 11px; font-size:13px; font-weight:700; color:#3A5A78; cursor:pointer; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+  .hot.lock { opacity:.55; color:#888; }
+  .hot:active { transform:translate(-50%,-50%) scale(.93); }
+  #wHint, #iHint { text-align:center; color:#6E8A7C; font-size:15px; margin:10px 0 2px; min-height:22px; }
+  #fade, #ifade { position:absolute; inset:0; background:#EAF4EE; opacity:0; pointer-events:none; transition:opacity .45s; z-index:5; }
+  #fade.on, #ifade.on { opacity:1; }
+  #insideWrap { position:relative; width:100%; aspect-ratio:16/9; border-radius:18px; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.28); background:#CFE8F7; }
+  #insideBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; animation:kb 16s ease-in-out infinite alternate; }
+  @keyframes kb { from{ transform:scale(1) translate(0,0);} to{ transform:scale(1.12) translate(-2%,-1.5%);} }
+</style>
+</head>
+<body>
+<header>
+  <button class="pill" id="backBtn" style="visibility:hidden">⬅ 地图</button>
+  <div class="ttl" id="ttl">🐰 棋子大冒险</div>
+  <div style="display:flex;gap:7px">
+    <button class="pill" id="worldBtn" style="display:none">🌿 看风景</button>
+    <button class="pill" id="stars">⭐ 0</button>
+    <button class="pill" id="sndBtn">🔊</button>
+    <button class="pill" id="parentBtn">👪</button>
+  </div>
+</header>
+<main>
+  <div class="screen on" id="world">
+    <div id="plaza">
+      <img id="plazaBg" src="assets/scene_plaza.png?v=3" alt="">
+      <div id="hotspots"></div>
+      <img id="rab" alt="">
+      <div id="fade"></div>
+    </div>
+    <div id="wHint">点一座冰屋学一招 · 或走进棋盘内部</div>
+    <div style="text-align:center;font-size:13px;color:#a98a52;margin-top:2px">学围棋，更学会思考和面对挫折 · <a href="#" onclick="document.getElementById('parentBtn').click();return false" style="color:#5B8DD9">家长 30 秒了解</a></div>
+    <div class="btnrow">
+      <button class="big blue" id="enterBtn">🧊 走进棋盘内部</button>
+      <button class="big" onclick="location.href='world3d.html'">🌍 3D 棋境</button>
+    </div>
+  </div>
+  <div class="screen" id="inside">
+    <div id="insideWrap">
+      <img id="insideBg" src="assets/scene_inside.png?v=3" alt="">
+      <div id="ifade"></div>
+    </div>
+    <div id="iHint">哇！你现在和棋子一样大——这里就是大决战的战场！</div>
+    <div class="btnrow">
+      <button class="big" id="duelBtn">⚔️ 开始对决</button>
+      <button class="big gray" id="plazaBtn">⬅ 回到广场</button>
+    </div>
+  </div>
+  <div class="screen" id="map"></div>
+  <div class="screen" id="game">
+    <div id="bubble"><span class="panda">🐰</span><span id="msg"></span></div>
+    <canvas id="bd"></canvas>
+    <div class="btnrow" id="btns"></div>
+  </div>
+</main>
+<div id="modal"><div class="box" id="modalBody"></div></div>
+
+<script src="levels5k.js?v=2"></script>
+<script src="assets/voice/manifest.js?v=5"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const LSP="qz2_prog", LSS="qz2_start", LST="qz2_task_";
+let prog={}; try{prog=JSON.parse(localStorage.getItem(LSP))||{};}catch(e){prog={};}
+if(!localStorage.getItem(LSS)) localStorage.setItem(LSS, Date.now());
+const dayIdx=Math.min(90, Math.floor((Date.now()-(+localStorage.getItem(LSS)))/864e5)+1);
+let soundOn=true, lastMsg="", koPt=null, passCnt=0, capMe=0, capAI=0;
+
+function nbrs(c,r,N){const a=[];if(c>0)a.push([c-1,r]);if(c<N-1)a.push([c+1,r]);if(r>0)a.push([c,r-1]);if(r<N-1)a.push([c,r+1]);return a;}
+function groupLibs(g,c,r){
+  const N=g.length,color=g[c][r],seen=new Set([c+","+r]),libs=new Set(),st=[[c,r]],stones=[];
+  while(st.length){const[x,y]=st.pop();stones.push([x,y]);
+    for(const[nx,ny]of nbrs(x,y,N)){const k=nx+","+ny;
+      if(g[nx][ny]===0)libs.add(k);
+      else if(g[nx][ny]===color&&!seen.has(k)){seen.add(k);st.push([nx,ny]);}}}
+  return{stones,libs};
+}
+const clone=g=>g.map(c=>c.slice());
+function tryPlace(g,c,r,color){
+  if(g[c][r]!==0)return{ok:false};
+  const N=g.length,g2=clone(g);g2[c][r]=color;const captured=[];
+  for(const[nx,ny]of nbrs(c,r,N)){
+    if(g2[nx][ny]===3-color){const gr=groupLibs(g2,nx,ny);
+      if(gr.libs.size===0)for(const[sx,sy]of gr.stones){if(g2[sx][sy]!==0){g2[sx][sy]=0;captured.push([sx,sy]);}}}}
+  if(groupLibs(g2,c,r).libs.size===0)return{ok:false,suicide:true};
+  return{ok:true,g2,captured};
+}
+function groupsOf(g,color){
+  const N=g.length,seen=new Set(),out=[];
+  for(let c=0;c<N;c++)for(let r=0;r<N;r++)
+    if(g[c][r]===color&&!seen.has(c+","+r)){const gr=groupLibs(g,c,r);
+      gr.stones.forEach(([x,y])=>seen.add(x+","+y));out.push(gr);}
+  return out;
+}
+const k2p=k=>k.split(",").map(Number);
+
+/* ---------- 课程数据：6 章 × 学玩练考 ---------- */
+const CH=[
+{id:1,emo:"🎈",name:"气球村 · 什么是气",color:"#56A95C",levels:[
+ {t:"demo",ic:"🎬",name:"看一看",size:5,
+  script:[["say","看，棋子站在线的十字路口上，像小兔子站在小路口。",2600],["place",2,2,1],
+   ["libs",2,2,"它身边的空路口，是它的气，像一个个小气球，帮它呼吸。",3000],
+   ["say","有气球，棋子就能大口呼吸，稳稳地活着。",2600],
+   ["say","气球全被戳破，棋子就没法呼吸，会被请下棋盘。",2800],
+   ["say","站在中间，四个气球围着它，就像朋友多，更安心。",2800],
+   ["clear"],["place",0,4,1,400],["libs",0,4,"躲到角落，气球只剩两个，朋友少了，就要多小心哦。",3000],
+   ["say","只要还有一个气球，就还有一个办法。",2600]]},
+ {t:"lib",ic:"🎮",name:"试一试",size:5,stones:[[2,2,1]],origin:[2,2],guided:true,
+  intro:"来帮这颗黑棋数一数，把它的气球一个一个点亮吧！",why:"气都在棋子的上、下、左、右",
+  winText:"四个气球都找到了！你数得又慢又仔细，真棒。先看一看，数一数，再动手，不容易错。",hintText:"找不到啦？摸摸它的上、下、左、右，气球就藏在那里。"},
+ {t:"lib",ic:"✏️",name:"练一练",size:5,stones:[[0,2,1]],origin:[0,2],
+  intro:"这颗棋子站到了边边上，帮它找找，还剩几个气球？",why:"站在边上，有一边是墙，气球只剩三个，比中间少一个。",
+  winText:"三个，全找到了！你越找越熟练了呢。站在边上，有一边是墙，气球只剩三个，比中间少一个。"},
+ {t:"lib",ic:"✏️",name:"再练练",size:5,stones:[[4,4,1]],origin:[4,4],
+  intro:"角落里也有一颗棋子，它的气球躲在哪里？点点看！",why:"角落有两面墙，气球只剩两个，呼吸最少，最要小心。",
+  winText:"两个都被你找到了！小眼睛看得真仔细。去哪里之前，先看看那里安不安全。"},
+ {t:"pick",ic:"🏅",name:"小考验",size:5,stones:[[0,0,1],[4,2,1],[2,2,1]],answer:[0,0],pickColor:1,
+  intro:"三颗黑棋在等你，谁的气球最少、最需要帮忙？点点它。",
+  why:"角落的棋子只有两个气球，呼吸最少，所以最需要小心。",
+  winText:"找对啦！你把学过的都用上了，越想越会想。先去帮最需要帮忙的那一个。"}]},
+{id:2,emo:"🍬",name:"点心镇 · 吃子",color:"#E8924A",levels:[
+ {t:"demo",ic:"🎬",name:"看一看",size:5,
+  script:[["say","还记得气球吗？气球就是棋子的『气』。戳破一个，就少一口气！",3200],["place",2,2,2],["say","把白棋的气一口一口堵住……",1800],
+   ["place",1,2,1,500],["place",3,2,1,500],["place",2,1,1,500],
+   ["libs",2,2,"白棋只剩最后一口气啦！",2000],
+   ["place",2,3,1,400],["cap",2,2],["say","气全没了——提子！白棋被吃掉啦！",2400]]},
+ {t:"point",ic:"🎮",name:"试一试",size:5,stones:[[2,2,2],[1,2,1],[3,2,1],[2,1,1]],target:[2,3],guided:true,
+  intro:"白棋只剩最后一口气！堵住它！",
+  why:"白棋的气只剩这一个路口，堵住它白棋就没气了，马上被提走"},
+ {t:"point",ic:"✏️",name:"练一练",size:5,stones:[[0,2,2],[0,1,1],[1,2,1]],target:[0,3],
+  intro:"边上的白棋也只剩一口气，吃掉它！",
+  why:"靠边的棋子气本来就少，最后一口气在下边"},
+ {t:"point",ic:"✏️",name:"再练练",size:5,stones:[[2,1,2],[2,2,2],[2,0,1],[1,1,1],[3,1,1],[1,2,1],[3,2,1]],target:[2,3],
+  intro:"两个白子手拉手，也只剩一口气！一口吃掉它们！",
+  why:"连在一起的棋子共用气，最后一口气堵住就全部提走"},
+ {t:"pick",ic:"🏅",name:"小考验",size:5,stones:[[1,1,2],[0,1,1],[1,0,1],[2,1,1],[3,3,2]],answer:[1,1],pickColor:2,
+  intro:"哪块白棋马上就能被吃掉？点它！",
+  why:"它只剩 1 口气，下一手就能提；另一块还有 4 口气呢"}]},
+{id:3,emo:"🚨",name:"警报站 · 打吃和逃跑",color:"#D9534F",levels:[
+ {t:"demo",ic:"🎬",name:"看一看",size:5,
+  script:[["place",2,2,1],["place",1,2,2,400],["place",3,2,2,400],["place",2,1,2,400],
+   ["warn",2,2],["say","黑棋只剩一口气了！这叫『被打吃』，警报响啦！",2600],
+   ["place",2,3,1,400],["libs",2,2,"往气的方向逃跑，连成两个子，气一下变成 3 口！安全！",2800]]},
+ {t:"esc",ic:"🎮",name:"试一试",size:5,stones:[[2,2,1],[1,2,2],[3,2,2],[2,1,2]],hero:[2,2],best:[2,3],guided:true,
+  intro:"小黑被打吃啦！快救它！",
+  why:"顺着最后一口气的方向逃，两个子连在一起气就变多了"},
+ {t:"esc",ic:"✏️",name:"练一练",size:5,stones:[[0,2,1],[0,1,2],[1,2,2]],hero:[0,2],best:[0,3],
+  intro:"边上的小黑被打吃了，往哪里逃？",
+  why:"它唯一的气在下边，逃过去就有 2 口气了"},
+ {t:"pick",ic:"✏️",name:"再练练",size:5,stones:[[1,1,1],[0,1,2],[1,0,2],[2,1,2],[3,3,1]],answer:[1,1],pickColor:1,
+  intro:"哪颗黑棋在喊救命？点一点它！",
+  why:"它只剩 1 口气，正被打吃；另一颗很安全"},
+ {t:"esc",ic:"🏅",name:"小考验",size:5,stones:[[2,2,1],[2,1,2],[1,2,2],[2,3,2]],hero:[2,2],best:[3,2],
+  intro:"警报！小黑只剩一口气，快找到逃跑路线！",
+  why:"唯一的气在右边，逃出去就有 3 口气"}]},
+{id:4,emo:"🌉",name:"双胞胎桥 · 连接和分断",color:"#5B8DD9",levels:[
+ {t:"demo",ic:"🎬",name:"看一看",size:5,
+  script:[["place",2,1,1],["place",2,3,1,400],["say","两颗黑棋分开站，各自的气都不多。",2200],
+   ["place",2,2,1,500],["libs",2,2,"中间一连，变成一家人！气合在一起，变得好多！",2800],
+   ["say","记住：连接让自己变强，拆开敌人让它变弱。",2600]]},
+ {t:"connect",ic:"🎮",name:"试一试",size:5,stones:[[2,1,1],[2,3,1],[1,1,2],[3,1,2],[2,0,2]],heroes:[[2,1],[2,3]],best:[2,2],guided:true,
+  intro:"上面的小黑被打吃了！下一颗棋子，把两颗黑棋连成一家！",
+  why:"连在 2,2 这个点上，被打吃的小黑就和伙伴手拉手，气一下子变多，白棋吃不到了"},
+ {t:"point",ic:"✏️",name:"练一练",size:5,stones:[[2,1,2],[2,3,2],[1,1,1],[3,1,1]],target:[2,2],
+  intro:"轮到我们拆白棋啦！把两块白棋分开！",
+  why:"下在中间，白棋就连不上了——上面的白棋只剩 1 口气，跑也跑不掉"},
+ {t:"choice",ic:"🏅",name:"小考验",size:5,stones:[[2,1,1],[1,1,2],[2,0,2],[3,1,2],[2,3,1]],
+  cands:[{pt:[2,2],ok:true,why:"对！先救命：连回去气就多了，白棋吃不到你"},
+         {pt:[0,4],ok:false,why:"这个点很大，可是你的小黑正在喊救命！记住：先救命，再抢地盘"}],
+  intro:"两个点都闪闪发光，该下哪一个？",guided:false}]},
+{id:5,emo:"✨",name:"魔法学院 · 双叫吃",color:"#9B59B6",levels:[
+ {t:"demo",ic:"🎬",name:"看一看",size:5,
+  script:[["place",1,2,2],["place",3,2,2,300],["place",1,1,1,300],["place",0,2,1,300],["place",3,1,1,300],["place",4,2,1,300],
+   ["say","看，两块白棋都只剩两口气，而且共用中间这个路口……",3000],
+   ["place",2,2,1,500],["warn",1,2],["warn2",3,2],
+   ["say","魔法时刻！一颗棋子同时打吃两块白棋！白棋只能救一边——另一边就是我们的点心！",3600]]},
+ {t:"dbl",ic:"🎮",name:"试一试",size:5,stones:[[1,2,2],[3,2,2],[1,1,1],[0,2,1],[3,1,1],[4,2,1]],
+  hit:[2,2],resp:[1,3],guided:true,
+  intro:"找到那个魔法点，同时打吃两块白棋！",
+  why:"下在两块白棋中间，它们就同时只剩一口气，白棋救不过来",
+  why2:"白棋逃走了一块，另一块还在打吃中——堵住最后一口气，吃掉它！"},
+ {t:"noentry",ic:"✏️",name:"练一练",size:5,stones:[[2,1,2],[1,2,2],[3,2,2],[2,3,2]],answer:[2,2],cands:[[2,2],[0,0],[4,4]],
+  intro:"白棋围了一个小窝。三个闪光点里，哪一个是不能下的『禁入点』？",
+  why:"四面全是白棋，下进去一口气都没有——这种点叫禁入点，千万别跳进去"},
+ {t:"dbl",ic:"🏅",name:"小考验",size:5,stones:[[2,1,2],[2,3,2],[1,1,1],[2,0,1],[1,3,1],[2,4,1]],
+  hit:[2,2],resp:[3,1],guided:false,
+  intro:"考验时间：自己找到双叫吃的魔法点！",
+  why:"中间这点让上下两块白棋同时只剩一口气",
+  why2:"白棋救了一块，快吃掉另一块！"}]},
+{id:6,emo:"⚔️",name:"勇士谷 · 实战大决战",color:"#B5651D",levels:[
+ {t:"demo",ic:"🎬",name:"制胜四步诀",size:7,
+  script:[["say","实战制胜四步诀，跟我念！",1800],
+   ["say","第一步：自己只剩一口气？先逃命！",2400],
+   ["say","第二步：白棋只剩一口气？马上吃！",2400],
+   ["say","第三步：找魔法点，双叫吃，白棋救不过来！",2600],
+   ["say","第四步：都没有？就下在中间，挨着自己的棋，气多的地方最安全。",3000],
+   ["say","下棋时忘了怎么办？点『提示』，糯糯会告诉你下哪里、为什么！",3000]]},
+ {t:"play",ic:"🎮",name:"5路热身赛",size:5,prof:{capP:.45,atariP:.1,rand:.25},
+  intro:"和小熊猫下吃子棋！谁先吃掉对方一颗棋子谁赢。你执黑先下！"},
+ {t:"play",ic:"✏️",name:"7路挑战赛",size:7,prof:{capP:.7,atariP:.5,rand:.1},
+  intro:"糯糯认真起来了！记住四步诀，需要时点提示！"},
+ {t:"play",ic:"👑",name:"大魔王决战",size:7,prof:{capP:1,atariP:.75,rand:0},
+  intro:"大魔王登场！它不会手下留情——用上你学过的所有本领！"}]},
+{id:7,emo:"🪄",name:"魔法塔 · 高级吃子术",color:"#9B59B6",levels:[
+ {t:"demo",ic:"🎬",name:"看一看·征子",size:5,
+  script:[["say","新魔法：征子！把白棋赶下楼梯，越逃气越少！",2800],
+   ["place",3,0,2],["place",3,1,2,300],["place",2,1,2,300],["place",2,2,2,300],
+   ["place",2,0,1,250],["place",4,0,1,250],["place",4,1,1,250],["place",1,1,1,250],
+   ["place",3,2,1,250],["place",1,2,1,250],["place",2,3,1,250],
+   ["say","看，白棋像下楼梯一样，一路被赶到墙角……",2800],
+   ["cap",2,2],["say","一口气都没有啦——整条白龙被你征死！这就是征子！",3000]]},
+ {t:"choice",ic:"🎮",name:"试一试·往哪赶",size:5,stones:[[1,1,2],[0,1,1],[1,0,1]],guided:false,
+  cands:[{pt:[2,1],ok:true,why:"对！往下赶，白棋一路逃到墙角，气越来越少，征死它！"},
+         {pt:[1,2],ok:false,why:"往这边赶，白棋逃进大空地，越逃气越多，征不住啦！"}],
+  intro:"白棋想逃！两个闪光点，往哪边赶才能征住它？"},
+ {t:"point",ic:"✏️",name:"练一练·关门吃",size:5,stones:[[0,0,2],[1,0,2],[0,1,1],[1,1,1]],target:[2,0],
+  intro:"两颗白棋躲在角落，把『门』关上，一起吃掉它们！",
+  why:"关门吃！把唯一的出口一堵，墙角的白棋两颗一起被提走"},
+ {t:"demo",ic:"🎬",name:"看一看·倒扑",size:5,
+  script:[["place",1,1,2],["place",2,1,2,250],["place",2,2,2,250],["place",0,2,2,250],
+   ["place",1,0,1,250],["place",2,0,1,250],["place",3,1,1,250],["place",3,2,1,250],["place",0,1,1,250],
+   ["say","白棋肚子里有个空位，故意送一颗黑棋进去！",2800],
+   ["place",1,2,1,500],["warn",1,2],["say","白棋张嘴一口把它吃掉……",2400],
+   ["cap",1,2],["say","可是白棋自己气不够啦！黑棋再送回去——",2600],
+   ["place",1,2,1,500],["cap",1,1],
+   ["say","倒扑！送一颗，反提一大片！这就是倒扑魔法！",3000]]},
+ {t:"point",ic:"🎮",name:"试一试·倒扑",size:5,stones:[[1,1,2],[2,1,2],[2,2,2],[0,2,2]],target:[1,2],
+  intro:"用倒扑魔法！往白棋肚子里那个空位，送一颗棋子进去！",
+  why:"倒扑！先送一颗，白棋吃了你这颗就会气不够，你下一手能反提它一大块"},
+ {t:"choice",ic:"🏅",name:"小考验·征还是不征",size:5,stones:[[1,1,2],[0,1,1],[1,0,1],[3,3,2]],guided:false,
+  cands:[{pt:[2,1],ok:false,why:"小心！往这边赶会撞上右下角的白棋朋友，白棋接上就逃走了——这叫『引征』！"},
+         {pt:[1,2],ok:true,why:"真聪明！往另一边赶，避开它的朋友，白棋无处可逃，征死！"}],
+  intro:"征子前先看清楚：白棋有没有接应的朋友？该往哪边赶？"}]}
+];
+if(window.QK5){
+  if(QK5.extend7)CH[6].levels.push(...QK5.extend7);
+  if(QK5.chapters)QK5.chapters.forEach(ch=>CH.push(ch));
+}
+const FLAT=[]; CH.forEach(ch=>ch.levels.forEach((lv,i)=>{lv.key="c"+ch.id+"l"+(i+1); lv.ch=ch; FLAT.push(lv);}));
+
+/* ---------- 画板 ---------- */
+const cv=$("bd"),cx=cv.getContext("2d");
+let cur=null,B=null,marks=[],lastMove=null,busy=false,over=false,found=[],wrong=0,dblStep=0;
+let pvp=false,turn=1,hist=[],rev=null,demoTok=null,demoDone=false;
+let cssSize=0,pad=0,cell=0;
+function layout(){
+  const N=cur.size;
+  cssSize=Math.max(260,Math.min(window.innerWidth-36,430));
+  const dpr=window.devicePixelRatio||1;
+  cv.style.width=cssSize+"px";cv.style.height=cssSize+"px";
+  cv.width=cssSize*dpr;cv.height=cssSize*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
+  cell=cssSize/(N+0.4); pad=(cssSize-cell*(N-1))/2; draw();
+}
+const px=i=>pad+i*cell;
+function draw(){
+  const N=cur.size;
+  cx.fillStyle="#E9C37E";cx.fillRect(0,0,cssSize,cssSize);
+  cx.strokeStyle="#8a6b3f";cx.lineWidth=1.5;
+  for(let i=0;i<N;i++){
+    cx.beginPath();cx.moveTo(px(0),px(i));cx.lineTo(px(N-1),px(i));cx.stroke();
+    cx.beginPath();cx.moveTo(px(i),px(0));cx.lineTo(px(i),px(N-1));cx.stroke();}
+  if(N===7){cx.fillStyle="#8a6b3f";cx.beginPath();cx.arc(px(3),px(3),4,0,7);cx.fill();}
+  const R=cell*0.44;
+  for(let c=0;c<N;c++)for(let r=0;r<N;r++){
+    const v=B[c][r];if(!v)continue;
+    const X=px(c),Y=px(r),gr=cx.createRadialGradient(X-R*.35,Y-R*.35,R*.15,X,Y,R);
+    if(v===1){gr.addColorStop(0,"#666");gr.addColorStop(1,"#0a0a0a");}
+    else{gr.addColorStop(0,"#fff");gr.addColorStop(1,"#cfcfcf");}
+    cx.fillStyle=gr;cx.beginPath();cx.arc(X,Y,R,0,7);cx.fill();
+    if(v===2){cx.strokeStyle="#aaa";cx.lineWidth=1;cx.stroke();}}
+  for(const m of marks){
+    const X=px(m.c),Y=px(m.r);
+    if(m.t==="lib"){cx.fillStyle="#56A95C";cx.beginPath();cx.arc(X,Y,cell*.22,0,7);cx.fill();
+      cx.fillStyle="#fff";cx.font="bold "+(cell*.26)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("气",X,Y);}
+    else if(m.t==="hint"){cx.strokeStyle="#E8924A";cx.lineWidth=4;cx.setLineDash([6,5]);
+      cx.beginPath();cx.arc(X,Y,cell*.38,0,7);cx.stroke();cx.setLineDash([]);
+      cx.font=(cell*.5)+"px sans-serif";cx.textAlign="center";cx.fillText("👆",X+cell*.45,Y-cell*.35);}
+    else if(m.t==="cand"){cx.strokeStyle="#5B8DD9";cx.lineWidth=4;cx.setLineDash([2,4]);
+      cx.beginPath();cx.arc(X,Y,cell*.38,0,7);cx.stroke();cx.setLineDash([]);}
+    else if(m.t==="warn"){cx.font=(cell*.55)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("⚡",X,Y-cell*.55);}}
+  if(lastMove){const[c,r,v]=lastMove;
+    cx.strokeStyle=v===1?"#fff":"#333";cx.lineWidth=2.5;
+    cx.beginPath();cx.arc(px(c),px(r),R*.45,0,7);cx.stroke();}
+}
+
+/* ---------- 声音 ---------- */
+let voiceList=[],chosenVoice=localStorage.getItem("qz2_voice")||"";
+function loadVoices(){try{voiceList=speechSynthesis.getVoices().filter(v=>/^zh|cmn/i.test(v.lang));}catch(e){}}
+try{speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}catch(e){}
+function bestVoice(){
+  if(chosenVoice){const v=voiceList.find(v=>v.name===chosenVoice);if(v)return v;}
+  for(const p of["Tingting","婷婷","Siri","Enhanced","Premium","Natural","Xiaoxiao","晓晓","Meijia","美嘉","Yu-shu"]){
+    const v=voiceList.find(v=>v.name.includes(p));if(v)return v;}
+  return voiceList[0]||null;
+}
+let VOMAP=null,VOID=null,curAudio=null;
+function loadVO(j){if(!j||!j.lines)return;VOMAP={};VOID={};
+  Object.entries(j.lines).forEach(([id,o])=>{VOID[id]=o.file;if(o.lang==="zh")VOMAP[o.text]=o.file;});}
+if(window.VOICE_MANIFEST)loadVO(window.VOICE_MANIFEST);
+else fetch("assets/voice/manifest.json").then(r=>r.ok?r.json():null).then(loadVO).catch(()=>{});
+function playVO(f){try{if(curAudio)curAudio.pause();curAudio=new Audio("assets/voice/"+f);
+  curAudio.play().catch(()=>{});try{speechSynthesis.cancel();}catch(e){}return true;}catch(e){return false;}}
+function sayId(id){if(!soundOn)return;if(VOID&&VOID[id]){playVO(VOID[id]);}}
+function say(t){if(!soundOn)return;
+  if(VOMAP&&VOMAP[t]&&playVO(VOMAP[t]))return;
+  try{const u=new SpeechSynthesisUtterance(t);u.lang="zh-CN";u.rate=0.8;u.pitch=1.02;
+    const v=bestVoice();if(v)u.voice=v;
+    speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+let actx=null;
+function tone(seq){if(!soundOn)return;
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let t=actx.currentTime;
+    for(const[f,d]of seq){const o=actx.createOscillator(),g=actx.createGain();
+      o.frequency.value=f;o.type="triangle";o.connect(g);g.connect(actx.destination);
+      g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.11,t+.025);
+      g.gain.exponentialRampToValueAtTime(.001,t+d);
+      o.start(t);o.stop(t+d);t+=d*.9;}}catch(e){}}
+const sPlace=()=>tone([[440,.08]]),sCap=()=>tone([[660,.1],[880,.12]]),
+      sWin=()=>tone([[523,.12],[659,.12],[784,.12],[1047,.25]]),sNo=()=>tone([[180,.18]]);
+function msg(t,speak){lastMsg=t;$("msg").textContent=t;if(speak!==false)say(t);}
+function confetti(){const e=["🎉","⭐","🎈","🍭","✨"];
+  for(let i=0;i<22;i++){const s=document.createElement("span");s.className="confetti";
+    s.textContent=e[i%e.length];s.style.left=(Math.random()*95)+"vw";
+    s.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(s);
+    setTimeout(()=>s.remove(),1900);}}
+const starCount=()=>Object.values(prog).filter(Boolean).length;
+const refreshStars=()=>$("stars").textContent="⭐ "+starCount();
+function saveWin(){prog[cur.key]=true;localStorage.setItem(LSP,JSON.stringify(prog));refreshStars();}
+
+/* ---------- 地图 ---------- */
+function buildMap(){
+  const m=$("map");m.innerHTML="";
+  const pb=document.createElement("div");pb.id="pathbar";
+  let curFound=false, curName="";
+  CH.forEach((ch,i)=>{
+    const done=ch.levels.every(l=>prog[l.key]);
+    const d=document.createElement("span");
+    d.className="pdot"+(done?" done":(!curFound?" cur":""));
+    if(!done&&!curFound){curFound=true;curName=(ch.name.split("·")[0]||"").trim();}
+    d.title=ch.name;
+    d.onclick=()=>{const cards=document.querySelectorAll('#map .chap');if(cards[i])cards[i].scrollIntoView({block:"center",behavior:"smooth"});};
+    pb.appendChild(d);
+    if(i<CH.length-1){const l=document.createElement("span");l.className="pline"+(done?" done":"");pb.appendChild(l);}
+  });
+  const lab=document.createElement("span");lab.id="pathlabel";
+  lab.textContent=curName?("→ "+curName):"全部通关 🎉";
+  pb.appendChild(lab);
+  m.appendChild(pb);
+  let unlocked=true;
+  CH.forEach(ch=>{
+    const d=document.createElement("div");d.className="chap";d.style.borderColor=ch.color;
+    const done=ch.levels.filter(l=>prog[l.key]).length;
+    const ZIMG={1:"zone_gate",7:"zone_lounge",8:"zone_spring",10:"zone_temple"};
+    const zi=ZIMG[ch.id]?`<img src="assets/v2/${ZIMG[ch.id]}.png" style="width:100%;height:88px;object-fit:cover;border-radius:14px;margin-bottom:8px" onerror="this.remove()">`:"";
+    d.innerHTML=zi+`<h2>${ch.emo} ${ch.name}<span class="cnt">⭐${done}/${ch.levels.length}</span></h2>`;
+    const ns=document.createElement("div");ns.className="nodes";
+    ch.levels.forEach(lv=>{
+      const n=document.createElement("div");
+      const lock=!unlocked;
+      n.className="node"+(lock?" lock":"")+(prog[lv.key]?" done":"");
+      if(!lock)n.style.background=ch.color;
+      n.innerHTML=`<span class="ic">${lock?"🔒":lv.ic}</span>${lv.name}`;
+      n.onclick=()=>{if(lock){msg("先通过前面的关卡哦！");say("先通过前面的关卡哦");return;}start(lv);};
+      ns.appendChild(n);
+      if(!prog[lv.key])unlocked=false;
+    });
+    d.appendChild(ns);m.appendChild(d);
+  });
+}
+function show(s){
+  ["world","inside","map","game"].forEach(id=>$(id).classList.toggle("on",s===id));
+  $("backBtn").style.visibility=s==="game"?"visible":"hidden";
+  $("worldBtn").style.display=(s==="map")?"inline-block":"none";
+  if(s==="world")startWorld();
+  else if(s==="inside")startAmbient();
+  else stopWorld();
+  if(s==="map")buildMap();
+}
+
+/* ---------- 按钮区 ---------- */
+function buttons(list){
+  const b=$("btns");b.innerHTML="";
+  for(const[txt,cls,fn]of list){const x=document.createElement("button");
+    x.className="big "+cls;x.textContent=txt;x.onclick=fn;b.appendChild(x);}
+}
+function stdButtons(){
+  const a=[["💡 提示","alt",doHint],["🔄 重来","gray",()=>start(cur)]];
+  if(cur.t==="play"){
+    a.splice(1,0,[pvp?"👪 对手：家人":"🐰 对手：糯糯","blue",()=>{pvp=!pvp;start(cur);}]);
+    if((cur.play||{}).goal==="score")a.push(["🙅 停一手","alt",doPass]);
+    a.push(["📖 复盘","blue",openReview]);
+  }
+  buttons(a);
+}
+function winButtons(){
+  const a=[["🔄 再玩一次","gray",()=>start(cur)]];
+  const i=FLAT.indexOf(cur);
+  if(cur.t==="play"&&hist.length)a.unshift(["📖 复盘","blue",openReview]);
+  if(i<FLAT.length-1)a.push(["➡ 下一关","",()=>start(FLAT[i+1])]);
+  buttons(a);
+}
+
+/* ---------- 开始关卡 ---------- */
+function start(lv){
+  if(demoTok)demoTok.dead=true;
+  cur=lv;const N=lv.size;
+  B=Array.from({length:N},()=>Array(N).fill(0));
+  (lv.stones||[]).forEach(([c,r,v])=>B[c][r]=v);
+  marks=[];lastMove=null;busy=false;over=false;found=[];wrong=0;dblStep=0;turn=1;hist=[];rev=null;demoDone=false;koPt=null;passCnt=0;capMe=0;capAI=0;
+  show("game");layout();
+  if(lv.t==="demo"){
+    buttons([["🔁 再看一遍","alt",()=>start(lv)],["✅ 我学会啦","",()=>{if(!prog[cur.key]){saveWin();}confetti();sWin();
+      const i=FLAT.indexOf(cur);start(FLAT[i+1]);}]]);
+    demoTok={dead:false};runDemo(lv.script,demoTok);return;
+  }
+  stdButtons();
+  if(lv.guided){
+    const g=lv.t==="esc"?lv.best:lv.t==="connect"?lv.best:lv.t==="dbl"?lv.hit:(lv.targets?lv.targets[0]:lv.target);
+    if(g)marks=[{c:g[0],r:g[1],t:"hint"}];
+  }
+  if(lv.t==="choice"||lv.t==="noentry"){
+    const cs=lv.t==="choice"?lv.cands.map(x=>x.pt):lv.cands;
+    cs.forEach(p=>marks.push({c:p[0],r:p[1],t:"cand"}));
+  }
+  draw();
+  msg(lv.t==="play"&&pvp?"和家里人下吃子棋！黑棋先下，谁先吃掉对方一颗棋子谁就赢！":lv.intro);
+}
+
+/* ---------- 演示模式 ---------- */
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function runDemo(script,tok){
+  msg("看好啦！",false);
+  for(const st of script){
+    if(tok.dead)return;
+    const[op,...a]=st;
+    if(op==="say"){msg(a[0]);await wait((a[1]||2000)*1.45);}
+    else if(op==="place"){B[a[0]][a[1]]=a[2];lastMove=[a[0],a[1],a[2]];sPlace();draw();await wait((a[3]||700)*1.4);}
+    else if(op==="libs"){const g=groupLibs(B,a[0],a[1]);
+      marks=[...g.libs].map(k=>{const[x,y]=k2p(k);return{c:x,r:y,t:"lib"};});draw();
+      if(a[2])msg(a[2]);await wait((a[3]||2000)*1.45);}
+    else if(op==="clear"){marks=[];draw();}
+    else if(op==="warn"){marks=[{c:a[0],r:a[1],t:"warn"}];draw();await wait((a[2]||400)*1.5);}
+    else if(op==="warn2"){marks.push({c:a[0],r:a[1],t:"warn"});draw();await wait(400);}
+    else if(op==="cap"){const g=groupLibs(B,a[0],a[1]);g.stones.forEach(([x,y])=>B[x][y]=0);
+      marks=[];sCap();draw();await wait(700);}
+  }
+  if(!tok.dead){demoDone=true;msg("看明白了吗？点『我学会啦』，自己试试！");}
+}
+
+/* ---------- 胜负反馈 ---------- */
+const EPMAP={1:"1–5",2:"6–10",3:"11–15",4:"16–20",5:"21–25",6:"26–30"};
+function win(text,vo){
+  over=true;
+  const firstClear=!prog[cur.key];
+  if(firstClear)saveWin();else refreshStars();
+  let bonus=null;
+  if(firstClear&&cur.ch&&EPMAP[cur.ch.id]&&cur.ch.levels.every(l=>prog[l.key]))
+    bonus="🎬 整章通关！今晚的奖励：看《小喵小汪学围棋》第 "+EPMAP[cur.ch.id]+" 集！";
+  sWin();confetti();
+  if(bonus){msg(text+"　"+bonus,false);say(vo||text);setTimeout(()=>{if(soundOn)say(bonus);},3200);}
+  else{msg(text,false);say(vo||text);}
+  winButtons();
+}
+function fail(text){sNo();msg(text);cv.classList.add("shake");setTimeout(()=>cv.classList.remove("shake"),350);}
+
+/* ---------- 提示：位置 + 理由 ---------- */
+function doHint(){
+  if(!cur||over)return;
+  if(cur.t==="lib"){msg(cur.hintText||"气就在棋子的上、下、左、右的空路口！都点一遍！");return;}
+  if(cur.t==="pick"){msg("数一数每块棋的气，气最少的那块最危险！");return;}
+  if(cur.t==="point"||cur.t==="connect"){const p=cur.t==="point"?(cur.targets?cur.targets[0]:cur.target):cur.best;
+    marks=[{c:p[0],r:p[1],t:"hint"}];draw();msg("下在橙色圈圈！"+cur.why);return;}
+  if(cur.t==="esc"){marks=[{c:cur.best[0],r:cur.best[1],t:"hint"}];draw();msg("往橙色圈圈逃！"+cur.why);return;}
+  if(cur.t==="dbl"){const p=dblStep===0?cur.hit:findCapture(B,1);
+    if(p){marks=[{c:p[0],r:p[1],t:"hint"}];draw();}
+    msg("下在橙色圈圈！"+(dblStep===0?cur.why:cur.why2));return;}
+  if(cur.t==="noentry"){msg("找找哪个点四面都被白棋包围——下进去一口气都没有的，就是禁入点！");return;}
+  if(cur.t==="choice"){msg("先看看自己有没有棋子只剩一口气——记住：先救命，再抢地盘！");return;}
+  if(cur.t==="play"){const h=suggest(B);
+    if(h){marks=[{c:h.pt[0],r:h.pt[1],t:"hint"}];draw();msg("下在橙色圈圈！"+h.why);}
+    else msg("挨着自己的棋下，往气多的地方走！");return;}
+}
+function findCapture(g,color){
+  const N=g.length;
+  for(let c=0;c<N;c++)for(let r=0;r<N;r++){const t=tryPlace(g,c,r,color);
+    if(t.ok&&t.captured.length>0)return[c,r];}
+  return null;
+}
+function suggest(g){
+  // 极小极大搜索提示:保证跟着提示走是全局好棋(用户反馈:旧口诀提示会送死)
+  const N=g.length,DEPTH=N<=7?4:N<=9?3:2,WIN=100000;
+  function candidates(gg,color){
+    const opp=3-color,set=new Map();
+    const addPt=(c,r,pri)=>{const k=c+","+r;
+      if(gg[c][r]!==0)return;
+      if(!set.has(k)||set.get(k).pri<pri)set.set(k,{c,r,pri});};
+    for(const q of groupsOf(gg,opp)){
+      if(q.libs.size<=2)for(const k of q.libs){const[c,r]=k2p(k);addPt(c,r,q.libs.size===1?9:6);}
+    }
+    for(const q of groupsOf(gg,color)){
+      if(q.libs.size<=2)for(const k of q.libs){const[c,r]=k2p(k);addPt(c,r,q.libs.size===1?8:5);}
+    }
+    for(let c=0;c<N;c++)for(let r=0;r<N;r++)if(gg[c][r]!==0)
+      for(const[a,b]of nbrs(c,r,N))addPt(a,b,2);
+    const mid=(N-1)/2;
+    addPt(Math.floor(mid),Math.floor(mid),1);
+    addPt(Math.floor(mid)-1,Math.floor(mid),1);addPt(Math.floor(mid),Math.floor(mid)-1,1);
+    return[...set.values()].sort((a,b)=>b.pri-a.pri).slice(0,14);
+  }
+  function evalBoard(gg,color){
+    let sc=0;
+    for(const q of groupsOf(gg,color)){
+      sc+=Math.min(q.libs.size,4)*2+q.stones.length;
+      if(q.libs.size===1)sc-=30;
+    }
+    for(const q of groupsOf(gg,3-color)){
+      sc-=Math.min(q.libs.size,4)*2+q.stones.length;
+      if(q.libs.size===1)sc+=26;
+    }
+    return sc;
+  }
+  function negamax(gg,color,depth){
+    const cands=candidates(gg,color);
+    let best=-Infinity,bp=null;
+    for(const m of cands){
+      const t=tryPlace(gg,m.c,m.r,color);
+      if(!t.ok)continue;
+      let v;
+      if(t.captured.length>0)v=WIN-(DEPTH-depth)*10+t.captured.length;
+      else if(groupLibs(t.g2,m.c,m.r).libs.size<2&&cands.length>2)continue;
+      else if(depth<=1)v=evalBoard(t.g2,color);
+      else{const r=negamax(t.g2,3-color,depth-1);v=-(r?r.v:evalBoard(t.g2,3-color));}
+      if(v>best){best=v;bp=[m.c,m.r];}
+    }
+    return bp?{v:best,pt:bp}:null;
+  }
+  const r=negamax(g,1,DEPTH);
+  if(!r)return null;
+  const[c,rr]=r.pt;
+  const t=tryPlace(g,c,rr,1);
+  let why="第四步诀：占中间，挨着自己的棋，气多的地方最安全";
+  if(t.captured&&t.captured.length>0)why="第二步诀：白棋只剩一口气！堵住这里，马上吃掉它！";
+  else{
+    const wasAtari=groupsOf(g,1).some(q=>q.libs.size===1&&q.libs.has(c+","+rr));
+    const dbl=groupsOf(t.g2,2).filter(x=>x.libs.size===1).length;
+    if(wasAtari)why="第一步诀：你的棋只剩一口气啦！从这里逃，气就变多了";
+    else if(dbl>=2)why="第三步诀：魔法点！下这里同时打吃两块白棋，它救不过来！";
+    else if(dbl===1)why="追击！下这里白棋就只剩一口气，它得赶紧逃";
+  }
+  return{pt:[c,rr],why};
+}
+
+/* ---------- AI ---------- */
+function aiMove(g,prof){
+  const N=g.length,legal=[],scoreMode=cur&&cur.play&&cur.play.goal==="score";
+  for(let c=0;c<N;c++)for(let r=0;r<N;r++){
+    if(koPt&&c===koPt[0]&&r===koPt[1])continue;
+    const t=tryPlace(g,c,r,2);if(!t.ok)continue;
+    if(scoreMode&&t.captured.length===0&&nbrs(c,r,N).every(([a,b])=>g[a][b]===2))continue;
+    legal.push({c,r,t});
+  }
+  if(!legal.length)return null;
+  const caps=legal.filter(m=>m.t.captured.length>0);
+  if(scoreMode&&passCnt>=1&&!caps.length&&!groupsOf(g,2).some(x=>x.libs.size===1))return null;
+  if(caps.length&&Math.random()<prof.capP)return[caps[0].c,caps[0].r];
+  for(const gr of groupsOf(g,2))if(gr.libs.size===1){
+    const[lc,lr]=k2p([...gr.libs][0]);const t=tryPlace(g,lc,lr,2);
+    if(t.ok&&groupLibs(t.g2,lc,lr).libs.size>=2)return[lc,lr];}
+  if(Math.random()<prof.rand){const m=legal[Math.floor(Math.random()*legal.length)];return[m.c,m.r];}
+  const ataris=legal.filter(m=>{
+    if(groupLibs(m.t.g2,m.c,m.r).libs.size<2)return false;
+    return groupsOf(m.t.g2,1).some(x=>x.libs.size===1);});
+  if(ataris.length&&Math.random()<prof.atariP){const m=ataris[Math.floor(Math.random()*ataris.length)];return[m.c,m.r];}
+  let best=null,bs=-99;
+  for(const m of legal){
+    const my=groupLibs(m.t.g2,m.c,m.r).libs.size;
+    if(my<2&&legal.length>3)continue;
+    let adj=0,adjB=0;
+    for(const[nx,ny]of nbrs(m.c,m.r,N)){if(g[nx][ny]!==0)adj++;if(g[nx][ny]===1)adjB++;}
+    const ctr=-(Math.abs(m.c-(N-1)/2)+Math.abs(m.r-(N-1)/2))*.3;
+    const sc=my*.8+adjB*1.2+adj*.3+ctr+Math.random()*1.5;
+    if(sc>bs){bs=sc;best=m;}}
+  return best?[best.c,best.r]:[legal[0].c,legal[0].r];
+}
+
+/* ---------- 复盘 ---------- */
+function note(g,c,r,color,res){
+  if(color===2){
+    if(res.captured.length>0)return"💔 白棋提子，对局结束。被吃的原因看上一条 ⚠️";
+    if(groupsOf(res.g2,1).some(x=>x.libs.size===1))return"❗ 白棋打吃你了！下一手要逃命或反击";
+    return"";
+  }
+  if(res.captured.length>0)return"🎉 吃子！这就是胜负手，干得漂亮！";
+  if(groupsOf(res.g2,2).filter(x=>x.libs.size===1).length>=2)return"👍 双叫吃！魔法点，白棋只能救一边";
+  const wasAtari=groupsOf(g,1).some(x=>x.libs.size===1);
+  const nowAtari=groupsOf(res.g2,1).some(x=>x.libs.size===1);
+  if(wasAtari&&!nowAtari)return"💪 及时逃命，好棋（第一步诀）";
+  if(wasAtari&&nowAtari)return"⚠️ 你有棋子只剩一口气，这步没去救它！";
+  const cap=findCapture(g,1);
+  if(cap)return"💡 其实这步可以直接吃白棋（第 "+(cap[0]+1)+" 列第 "+(cap[1]+1)+" 行）";
+  if(groupLibs(res.g2,c,r).libs.size===1)return"⚠️ 下完自己只剩一口气，危险！";
+  return"";
+}
+function openReview(){
+  if(busy){msg("糯糯正在想棋，等它下完再复盘哦！");return;}
+  if(!hist.length){msg("还没下棋呢！先下几手，才有可以复盘的棋谱呀！");return;}
+  rev={idx:0};
+  drawRev();
+  buttons([["◀ 上一手","gray",()=>{if(rev.idx>0){rev.idx--;drawRev();}}],
+           ["下一手 ▶","blue",()=>{if(rev.idx<hist.length-1){rev.idx++;drawRev();}}],
+           ["↩ 退出复盘","alt",()=>{rev=null;
+             if(over)winButtons();else stdButtons();
+             B=hist[hist.length-1].board.map(x=>x.slice());lastMove=null;draw();
+             msg(over?"复盘结束！每盘棋看一遍自己的⚠️，进步飞快！":"回到对局，该你下啦！");}]]);
+  say("复盘时间！我们一手一手看");
+}
+function drawRev(){
+  const h=hist[rev.idx];
+  B=h.board.map(x=>x.slice());lastMove=[h.c,h.r,h.col];marks=[];draw();
+  const who=h.col===1?"你":"熊猫";
+  msg("第 "+(rev.idx+1)+"/"+hist.length+" 手 · "+who+"下在这里　"+(h.note||"平稳的一手"),false);
+  if(h.note)say(h.note);
+}
+
+/* ---------- 点击处理 ---------- */
+function handle(c,r){
+  if(busy||over||rev)return;
+  if(cur.t==="demo")return;
+  const N=cur.size;
+  if(c<0||r<0||c>=N||r>=N)return;
+
+  if(cur.t==="lib"){
+    const libs=groupLibs(B,cur.origin[0],cur.origin[1]).libs,k=c+","+r;
+    if(libs.has(k)){
+      if(!found.includes(k)){found.push(k);sCap();
+        marks=found.map(x=>{const[a,b]=k2p(x);return{c:a,r:b,t:"lib"};});draw();
+        if(found.length===libs.size)win(cur.winText||("太棒了！"+libs.size+" 口气全找到！"+cur.why+"！⭐"));
+        else msg("找到一口气！还差 "+(libs.size-found.length)+" 口！");}}
+    else if(B[c][r]!==0)fail("这是棋子本身，气在它旁边的空路口！");
+    else fail("这里不挨着那颗棋子，看看它的上下左右！");
+    return;
+  }
+  if(cur.t==="pick"){
+    if(B[c][r]!==cur.pickColor){fail(B[c][r]===0?"要点棋子哦！":"点错颜色啦，再看看题目！");return;}
+    const ans=groupLibs(B,cur.answer[0],cur.answer[1]).stones.map(p=>p.join(","));
+    if(ans.includes(c+","+r)){
+      marks=[...groupLibs(B,cur.answer[0],cur.answer[1]).libs].map(k=>{const[a,b]=k2p(k);return{c:a,r:b,t:"lib"};});
+      draw();win(cur.winText||("答对啦！"+cur.why+"！⭐"));
+    }else{
+      const g=groupLibs(B,c,r);
+      marks=[...g.libs].map(k=>{const[a,b]=k2p(k);return{c:a,r:b,t:"lib"};});draw();
+      fail("你点的这块有 "+g.libs.size+" 口气，还不是最危险的，再找找！");
+      setTimeout(()=>{marks=[];draw();},1500);
+    }
+    return;
+  }
+  if(cur.t==="point"){
+    if(B[c][r]!==0){fail("这里已经有棋子啦！");return;}
+    const res=tryPlace(B,c,r,1);
+    const tl=cur.targets||[cur.target];
+    if(res.ok&&tl.some(pp=>pp[0]===c&&pp[1]===r)){
+      B=res.g2;lastMove=[c,r,1];marks=[];sPlace();draw();
+      if(res.captured.length>0)setTimeout(()=>{sCap();draw();win("吃掉啦！"+cur.why+"！⭐");},220);
+      else win("好棋！"+cur.why+"！⭐");
+    }else{
+      wrong++;
+      if(wrong>=2){const hp=cur.targets?cur.targets[0]:cur.target;marks=[{c:hp[0],r:hp[1],t:"hint"}];draw();
+        fail("看橙色圈圈——"+cur.why);}
+      else fail("再想想！点『提示』糯糯告诉你位置和原因。");
+    }
+    return;
+  }
+  if(cur.t==="esc"||cur.t==="connect"){
+    if(B[c][r]!==0){fail("这里已经有棋子啦！");return;}
+    const res=tryPlace(B,c,r,1);
+    if(!res.ok){fail("这里不能下哦！");return;}
+    const hero=cur.t==="esc"?cur.hero:cur.heroes[0];
+    const g=groupLibs(res.g2,hero[0],hero[1]);
+    let okMove=g.libs.size>=2;
+    if(cur.t==="connect"&&okMove)
+      okMove=g.stones.some(p=>p[0]===cur.heroes[1][0]&&p[1]===cur.heroes[1][1]);
+    if(okMove){B=res.g2;lastMove=[c,r,1];marks=[];sPlace();draw();
+      win((cur.t==="connect"?"连上啦！":"得救啦！")+"现在有 "+g.libs.size+" 口气，安全了！"+cur.why+"！⭐");
+    }else{
+      wrong++;
+      if(wrong>=2){marks=[{c:cur.best[0],r:cur.best[1],t:"hint"}];draw();}
+      fail("哎呀，小黑还是只剩一口气！"+cur.why);
+    }
+    return;
+  }
+  if(cur.t==="choice"){
+    const hit=cur.cands.find(x=>x.pt[0]===c&&x.pt[1]===r);
+    if(!hit){fail("点闪光的两个点中的一个哦！");return;}
+    if(hit.ok){const res=tryPlace(B,c,r,1);B=res.g2;lastMove=[c,r,1];marks=[];sPlace();draw();
+      win(hit.why+"！⭐");}
+    else fail(hit.why);
+    return;
+  }
+  if(cur.t==="noentry"){
+    const isCand=cur.cands.some(p=>p[0]===c&&p[1]===r);
+    if(!isCand){fail("点闪光的点哦！");return;}
+    if(c===cur.answer[0]&&r===cur.answer[1]){
+      marks=[];draw();win("找到了！"+cur.why+"！⭐");
+    }else{
+      const res=tryPlace(B,c,r,1);
+      if(res.ok){const g=groupLibs(res.g2,c,r);
+        fail("这里可以下呀——你看它有 "+g.libs.size+" 口气。要找的是一口气都没有的禁入点！");}
+      return;
+    }
+    return;
+  }
+  if(cur.t==="dbl"){
+    if(B[c][r]!==0){fail("这里已经有棋子啦！");return;}
+    if(dblStep===0){
+      if(c===cur.hit[0]&&r===cur.hit[1]){
+        const res=tryPlace(B,c,r,1);B=res.g2;lastMove=[c,r,1];marks=[];sPlace();draw();
+        busy=true;msg(cur.m1||"双叫吃！两块白棋同时只剩一口气！白棋慌了……");
+        setTimeout(()=>{
+          const rr=tryPlace(B,cur.resp[0],cur.resp[1],2);
+          if(rr.ok)B=rr.g2;lastMove=[cur.resp[0],cur.resp[1],2];sPlace();draw();
+          busy=false;dblStep=1;
+          msg((cur.m2||"白棋只救了一块！")+cur.why2);
+        },1700);
+      }else{
+        wrong++;
+        if(wrong>=2){marks=[{c:cur.hit[0],r:cur.hit[1],t:"hint"}];draw();}
+        fail("再找找——要一颗棋子同时打吃两块白棋！"+(wrong>=2?cur.why:""));
+      }
+    }else{
+      const res=tryPlace(B,c,r,1);
+      if(res.ok&&res.captured.length>0){
+        B=res.g2;lastMove=[c,r,1];sPlace();draw();
+        setTimeout(()=>{sCap();draw();win("提子！双叫吃成功——这就是吃子棋最厉害的魔法！⭐");},220);
+      }else fail("被打吃的那块白棋只剩一口气，堵住它最后的气！");
+    }
+    return;
+  }
+  if(cur.t==="play"){
+    const P=cur.play||{goal:"cap1"},goal=P.goal||"cap1";
+    const color=pvp?turn:1;
+    if(koPt&&c===koPt[0]&&r===koPt[1]){fail("打劫！刚提过这里，要先去别处下一手，才能提回来。");return;}
+    const res=tryPlace(B,c,r,color);
+    if(!res.ok){fail(res.suicide?"这里下了会没有气（禁入点），不能下！":"这里已经有棋子啦！");return;}
+    const n=note(B,c,r,color,res);
+    koPt=koAfter(res,c,r);passCnt=0;
+    B=res.g2;lastMove=[c,r,color];marks=[];sPlace();draw();
+    hist.push({c,r,col:color,board:clone(B),note:n});
+    if(pvp){
+      if(res.captured.length>0){
+        if(color===1)capMe+=res.captured.length;else capAI+=res.captured.length;
+        if(goal==="cap1"){over=true;sWin();confetti();winButtons();
+          msg((color===1?"黑棋":"白棋")+"先吃到子，赢啦！🏆");return;}
+        if(goal==="capN"&&(capMe>=P.n||capAI>=P.n)){over=true;sWin();confetti();winButtons();
+          msg((capMe>=P.n?"黑棋":"白棋")+"先吃满 "+P.n+" 颗，赢啦！🏆",false);
+          say((capMe>=P.n?"黑棋":"白棋")+"先吃满了，赢啦！");return;}
+        sCap();
+      }
+      turn=3-turn;msg(turn===1?"该黑棋啦！":"该白棋啦！",false);
+      return;
+    }
+    if(res.captured.length>0){
+      capMe+=res.captured.length;sCap();
+      if(goal==="cap1"){win("你吃掉了对手的棋子！你赢啦！🏆 点『复盘』看看你的好棋！");return;}
+      if(goal==="capN"&&capMe>=P.n){win("你先吃满 "+P.n+" 颗棋子，赢啦！🏆 点『复盘』看看你的好棋！","你先吃满棋子，赢啦！点复盘看看你的好棋！");return;}
+      if(goal==="capN")msg("吃到 "+capMe+"/"+P.n+" 颗！继续追！",false);
+    }
+    aiTurn();
+    return;
+  }
+}
+function koAfter(res,c,r){
+  if(res.captured.length!==1)return null;
+  const gr=groupLibs(res.g2,c,r);
+  return(gr.stones.length===1&&gr.libs.size===1)?res.captured[0]:null;
+}
+function aiTurn(){
+  const P=cur.play||{goal:"cap1"},goal=P.goal||"cap1";
+  busy=true;msg("对手想一想…",false);
+  setTimeout(()=>{
+    const mv=aiMove(B,cur.prof);
+    if(!mv){
+      busy=false;
+      if(goal==="score"){
+        passCnt++;
+        if(passCnt>=2){scoreGame();return;}
+        msg("糯糯停一手。你觉得下完了，就点『停一手』，我们来数子！");return;
+      }
+      win("对手没地方下啦，你赢了！🏆");return;
+    }
+    const r2=tryPlace(B,mv[0],mv[1],2);
+    const n2=note(B,mv[0],mv[1],2,r2);
+    koPt=koAfter(r2,mv[0],mv[1]);passCnt=0;
+    B=r2.g2;lastMove=[mv[0],mv[1],2];sPlace();draw();busy=false;
+    hist.push({c:mv[0],r:mv[1],col:2,board:clone(B),note:n2});
+    if(r2.captured.length>0){
+      capAI+=r2.captured.length;sCap();
+      if(goal==="cap1"){over=true;sNo();winButtons();
+        msg("啊呀，被吃掉了。点『复盘』，糯糯带你找原因——找到了下盘就能赢！");return;}
+      if(goal==="capN"&&capAI>=P.n){over=true;sNo();winButtons();
+        msg("啊呀，糯糯先吃满 "+P.n+" 颗了。点『复盘』找原因——下盘赢回来！",false);
+        say("啊呀，糯糯先吃满了。点复盘找原因，下盘赢回来！");return;}
+    }
+    const danger=groupsOf(B,1).some(x=>x.libs.size===1);
+    msg(danger?"⚡警报！你有棋子只剩一口气，先救命！":"该你下啦！",danger);
+  },1600);
+}
+function doPass(){
+  if(over||busy||!cur||cur.t!=="play")return;
+  passCnt++;
+  if(pvp){
+    if(passCnt>=2){scoreGame();return;}
+    const who=turn===1?"黑棋":"白棋";
+    turn=3-turn;msg(who+"停一手。"+(turn===1?"该黑棋啦！":"该白棋啦！"),false);return;
+  }
+  if(passCnt>=2){scoreGame();return;}
+  msg("你停一手，让糯糯再想想…",false);
+  aiTurn();
+}
+function scoreGame(){
+  over=true;busy=false;
+  const N=B.length;let sb=0,sw=0;const seen=new Set();
+  for(let c=0;c<N;c++)for(let r=0;r<N;r++){
+    if(B[c][r]===1)sb++;
+    else if(B[c][r]===2)sw++;
+    else{
+      const k=c+","+r;if(seen.has(k))continue;
+      const st=[[c,r]],reg=[];const bord=new Set();seen.add(k);
+      while(st.length){const[x,y]=st.pop();reg.push([x,y]);
+        for(const[nx,ny]of nbrs(x,y,N)){const kk=nx+","+ny;
+          if(B[nx][ny]===0){if(!seen.has(kk)){seen.add(kk);st.push([nx,ny]);}}
+          else bord.add(B[nx][ny]);}}
+      if(bord.size===1){if(bord.has(1))sb+=reg.length;else sw+=reg.length;}
+    }
+  }
+  const komi=(cur.play&&cur.play.komi)||0;
+  const w=sw+komi;
+  const txt="数子结果：黑 "+sb+" — 白 "+w+(komi?"（含贴目 "+komi+"）":"");
+  if(pvp){
+    winButtons();
+    msg(txt+(sb>w?"　黑棋赢啦！🏆":sb<w?"　白棋赢啦！🏆":"　平局！"),false);
+    say(sb>w?"数完啦！黑棋的地盘更大，黑棋赢啦！":sb<w?"数完啦！白棋的地盘更大，白棋赢啦！":"数完啦！两边一样大，平局！");
+    if(sb!==w){sWin();confetti();}
+    return;
+  }
+  if(sb>w){win(txt+"　你围的地盘更大，你赢啦！🏆","数完啦！你围的地盘更大，你赢啦！");return;}
+  sNo();winButtons();
+  msg(txt+(sb<w?"　这次糯糯的地盘大一点。复盘想想：哪里还能围得更大？":"　平局！再来一盘分出胜负！"),false);
+  say(sb<w?"这次糯糯的地盘大一点。复盘想想，哪里还能围得更大？":"平局！再来一盘分出胜负！");
+}
+
+cv.addEventListener("pointerdown",e=>{
+  const rect=cv.getBoundingClientRect();
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  const c=Math.round((x-pad)/cell),r=Math.round((y-pad)/cell);
+  if(Math.abs(x-px(c))>cell*.45||Math.abs(y-px(r))>cell*.45)return;
+  handle(c,r);
+});
+$("backBtn").onclick=()=>{if(demoTok)demoTok.dead=true;show("map");};
+$("sndBtn").onclick=()=>{soundOn=!soundOn;$("sndBtn").textContent=soundOn?"🔊":"🔇";
+  if(!soundOn){try{speechSynthesis.cancel();}catch(e){}stopAmbient();}
+  else if($("world").classList.contains("on"))startAmbient();};
+window.addEventListener("resize",()=>{if(cur&&$("game").classList.contains("on"))layout();});
+
+/* ---------- 家长区：今日任务 + 名词卡 + 免费宝库 ---------- */
+const EP=Math.min(30,Math.ceil(dayIdx/3));
+function parentHTML(){
+  const tk=JSON.parse(localStorage.getItem(LST+dayIdx)||"[false,false,false]");
+  const isWeekend=[0,6].includes(new Date().getDay());
+  return `
+  <h3>🎯 30 秒了解这个游戏</h3>
+  <div class="gloss"><b>学围棋，更学会思考和面对挫折</b><br>• 夸努力不夸聪明，养成长型思维<br>• 把失败变成再试一次的勇气<br>• 棋里藏着团结与保护自己的道理<br><span style="color:#999">白瓷兔子的世界中央，躺着一张大棋盘；每颗棋子都会呼吸，等你来当它的朋友。</span></div>
+  <h3>📅 今天是第 ${dayIdx} / 90 天（启蒙期）</h3>
+  <div class="task"><input type="checkbox" id="t0" ${tk[0]?"checked":""}> 看动画《小喵小汪学围棋》第 ${EP} 集（B站搜索，约15分钟）</div>
+  <div class="task"><input type="checkbox" id="t1" ${tk[1]?"checked":""}> 棋子大冒险闯关 1–2 关（约15分钟）</div>
+  <div class="task"><input type="checkbox" id="t2" ${tk[2]?"checked":""}> ${isWeekend?"COSUMI 5路实战 1盘：<a href='https://playgo.to/cn' target='_blank'>playgo.to/cn</a>":"和孩子下一盘吃子棋（勇士谷·家人模式）"}</div>
+  <h3>🔈 语音音色</h3>
+  <div class="task" style="flex-wrap:wrap">
+    <select id="voiceSel" style="flex:1;min-width:160px;font-size:15px;padding:6px;border-radius:8px;border:2px solid #F4C879">
+      ${voiceList.length?voiceList.map(v=>`<option value="${v.name}" ${bestVoice()&&bestVoice().name===v.name?"selected":""}>${v.name}</option>`).join(""):"<option value=''>（此浏览器未提供中文语音）</option>"}
+    </select>
+    <button class="big alt" id="voiceTry" style="padding:8px 14px;font-size:15px">▶ 试听</button>
+  </div>
+  <p style="color:#999;font-size:13px">机器音难听是浏览器默认音色的锅——换一个试试。Mac 推荐婷婷(Tingting)或 Siri 音色（系统设置→辅助功能→朗读内容里可下载更自然的增强音色）。</p>
+  <h3>🔤 给家长的名词小卡</h3>
+  <div class="gloss"><b>级（K）和段（D）</b>：围棋水平从 30级(30K) 开始，数字越小越强：30K→1K，然后业余初段(1D)→7段。<b>25K ≈ 启蒙毕业线</b>：会数气吃子、能正确下完一盘棋——就是这 90 天的目标。</div>
+  <div class="gloss"><b>吃子棋</b>：谁先提掉对方一颗棋子谁赢，全世界儿童围棋启蒙的标准第一课。围地和胜负规则等 25K 以后再教。</div>
+  <h3>🎁 免费宝库（现在就用）</h3>
+  <div class="res">🎬 <b>《小喵小汪学围棋》30集动画</b>：B站搜索「小喵小汪学围棋」——本期主课，零基础到10级<div class="lt">第1–90天 · 每天1集，3天一轮复习</div></div>
+  <div class="res">🌐 <b>COSUMI</b>：<a href="https://playgo.to/cn" target="_blank">playgo.to/cn</a> 浏览器免费人机，从5路开始<div class="lt">第36天起 · 周末实战场</div></div>
+  <div class="res">📖 <b>互动规则教程（中文）</b>：<a href="http://playgo.to/iwtg/cn_simple/" target="_blank">The Interactive Way To Go</a><div class="lt">家长预习用，讲得最清楚</div></div>
+  <h3>🔒 以后再用（启蒙毕业后解锁）</h3>
+  <div class="res">📚 <b>101围棋</b>：<a href="https://www.101weiqi.com" target="_blank">101weiqi.com</a> 上万道分级死活题+错题本<div class="lt">约第4个月起（15K题区）</div></div>
+  <div class="res">🤖 <b>KaTrain</b>：<a href="https://github.com/sanderland/katrain" target="_blank">github.com/sanderland/katrain</a> 可调段位AI陪练+自动复盘<div class="lt">约第6个月起（9路分级对抗）</div></div>
+  <div class="res">🌍 <b>OGS / 野狐</b>：<a href="https://online-go.com" target="_blank">online-go.com</a>（真人对弈，第2年起）</div>
+  <p style="color:#999;font-size:13px">付费资源（道场、教练课、赛事）规划在业余2段后再评估——在那之前，以上免费体系足够。完整90天计划见项目 docs/。</p>
+  <div style="text-align:center;margin-top:10px"><button class="big" id="closeModal">知道啦</button></div>`;
+}
+$("parentBtn").onclick=()=>{
+  $("modalBody").innerHTML=parentHTML();
+  $("modal").classList.add("on");
+  ["t0","t1","t2"].forEach((id,i)=>{$(id).onchange=()=>{
+    const tk=JSON.parse(localStorage.getItem(LST+dayIdx)||"[false,false,false]");
+    tk[i]=$(id).checked;localStorage.setItem(LST+dayIdx,JSON.stringify(tk));};});
+  $("voiceSel").onchange=()=>{chosenVoice=$("voiceSel").value;localStorage.setItem("qz2_voice",chosenVoice);};
+  $("voiceTry").onclick=()=>say("小兔子你好呀！我是糯糯，深呼吸，慢慢想，糯糯陪着你。");
+  $("closeModal").onclick=()=>$("modal").classList.remove("on");
+};
+
+/* ---------- 漫游世界（照片级雪世界·方案A） ---------- */
+const ASSETDIR="assets/";
+let rabReady=false,rabX=0.5,rabFace=1;
+function floodKeyURL(img){
+  const W=img.naturalWidth,H=img.naturalHeight,cv=document.createElement("canvas");
+  cv.width=W;cv.height=H;const x=cv.getContext("2d");x.drawImage(img,0,0);
+  try{const d=x.getImageData(0,0,W,H),p=d.data,seen=new Uint8Array(W*H),st=[];
+    const isBg=i=>{const mn=Math.min(p[i],p[i+1],p[i+2]),mx=Math.max(p[i],p[i+1],p[i+2]);return mn>198&&mx-mn<32;};
+    const push=(a,b)=>{if(a<0||b<0||a>=W||b>=H)return;const s=b*W+a;if(seen[s])return;seen[s]=1;st.push(a,b);};
+    for(let a=0;a<W;a++){push(a,0);push(a,H-1);}for(let b=0;b<H;b++){push(0,b);push(W-1,b);}
+    while(st.length){const b=st.pop(),a=st.pop(),i=(b*W+a)*4;if(!isBg(i))continue;p[i+3]=0;push(a+1,b);push(a-1,b);push(a,b+1);push(a,b-1);}
+    x.putImageData(d,0,0);}catch(e){}
+  return cv.toDataURL("image/png");
+}
+function loadRabbit(){const img=new Image();
+  img.onload=()=>{try{$("rab").src=floodKeyURL(img);}catch(e){$("rab").src=img.src;}rabReady=true;};
+  img.onerror=()=>{rabReady=true;};img.src=ASSETDIR+"rabbit_side.png";}
+function chapUnlocked(i){if(i===0)return true;return CH[i-1].levels.every(l=>prog[l.key]);}
+function placeRab(){const r=$("rab");if(r){r.style.left=(rabX*100)+"%";r.style.transform="translateX(-50%) scaleX("+rabFace+")";}}
+function walkToPct(p){rabFace=(p<rabX)?-1:1;rabX=Math.max(.1,Math.min(.9,p));placeRab();}
+const HOT=[[8,56],[67,54],[88,58],[6,80],[24,50],[50,80],[63,12],[35,63],[74,44],[50,36]];
+const BOARD_CH=5;
+function buildHotspots(){
+  const box=$("hotspots");if(!box)return;box.innerHTML="";
+  CH.forEach((ch,i)=>{const pos=HOT[i]||[50,50],unlocked=chapUnlocked(i);
+    const b=document.createElement("button");
+    b.className="hot"+((unlocked||i===BOARD_CH)?"":" lock");
+    b.style.left=pos[0]+"%";b.style.top=pos[1]+"%";
+    b.textContent=i===BOARD_CH?"⚔️ 大决战":( (unlocked?"":"🔒")+ch.emo+(ch.name.split("·")[0]||"").trim() );
+    b.onclick=ev=>{ev.stopPropagation();startAmbient();
+      if(i===BOARD_CH){walkToPct(.5);setTimeout(()=>enterBoard(),650);return;}
+      if(!unlocked){msgWorld("先通过前面的世界，这座冰屋才会亮哦！");return;}
+      walkToPct(pos[0]/100);setTimeout(()=>enterChapter(i),650);};
+    box.appendChild(b);});
+}
+function enterChapter(i){
+  $("fade").classList.add("on");say(CH[i].name.split("·")[0]);
+  setTimeout(()=>{show("map");$("fade").classList.remove("on");
+    const cards=document.querySelectorAll('#map .chap');if(cards[i])cards[i].scrollIntoView({block:"center"});},460);
+}
+function enterBoard(){
+  $("fade").classList.add("on");say("走进棋盘里面看看！");
+  setTimeout(()=>{show("inside");$("fade").classList.remove("on");},460);
+}
+const INSIDE_HINT="哇！你现在和棋子一样大——这里就是大决战的战场！";
+$("duelBtn").onclick=()=>{
+  startAmbient();
+  if(chapUnlocked(BOARD_CH)){
+    $("ifade").classList.add("on");say("勇士谷，大决战！");
+    setTimeout(()=>{show("map");$("ifade").classList.remove("on");
+      const cards=document.querySelectorAll('#map .chap');if(cards[BOARD_CH])cards[BOARD_CH].scrollIntoView({block:"center"});},460);
+  }else{
+    $("iHint").textContent="先点亮广场上的冰屋、学会所有本领，再来决战！";say("先去冰屋练本领哦");
+    setTimeout(()=>$("iHint").textContent=INSIDE_HINT,2600);
+  }
+};
+$("plazaBtn").onclick=()=>show("world");
+function msgWorld(t){const h=$("wHint");if(!h)return;h.textContent=t;
+  setTimeout(()=>{h.textContent="点一座冰屋学一招 · 或走进棋盘内部";},2400);}
+function startWorld(){if(!rabReady)loadRabbit();buildHotspots();placeRab();startAmbient();}
+function stopWorld(){stopAmbient();}
+let welcomed=false;
+$("plaza").addEventListener("pointerdown",e=>{startAmbient();
+  if(!welcomed){welcomed=true;say("小兔子来啦！糯糯等你呢，一起去棋盘上玩吧。");}
+  if(e.target.classList&&e.target.classList.contains("hot"))return;
+  const r=$("plaza").getBoundingClientRect(),x=(e.clientX-r.left)/r.width;
+  walkToPct(x<rabX?Math.max(.1,rabX-.2):Math.min(.9,rabX+.2));});
+$("enterBtn").onclick=enterBoard;
+$("worldBtn").onclick=()=>{show("world");};
+window.addEventListener("resize",()=>{});
+
+/* 环境音：柔和持续低鸣 + 缓慢起伏，区别于落子音效 */
+let ambNodes=null;
+function startAmbient(){
+  if(!soundOn||ambNodes)return;
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+    const master=actx.createGain();master.gain.value=0.0;master.connect(actx.destination);
+    master.gain.linearRampToValueAtTime(0.06,actx.currentTime+1.5);
+    const freqs=[174,261,329];const oscs=[];
+    for(const fr of freqs){const o=actx.createOscillator(),g=actx.createGain();
+      o.type="sine";o.frequency.value=fr;g.gain.value=0.5;o.connect(g);g.connect(master);
+      const lfo=actx.createOscillator(),lg=actx.createGain();
+      lfo.frequency.value=0.07+Math.random()*0.05;lg.gain.value=0.25;
+      lfo.connect(lg);lg.connect(g.gain);lfo.start();o.start();oscs.push(o,lfo);}
+    ambNodes={master,oscs};
+  }catch(e){}
+}
+function stopAmbient(){
+  if(!ambNodes)return;
+  try{const{master,oscs}=ambNodes;master.gain.linearRampToValueAtTime(0,actx.currentTime+0.6);
+    setTimeout(()=>{oscs.forEach(o=>{try{o.stop();}catch(e){}});},700);}catch(e){}
+  ambNodes=null;
+}
+
+window.__qz={
+  start:k=>{const lv=FLAT.find(x=>x.key===k);if(lv)start(lv);},
+  click:(c,r)=>handle(c,r),
+  setPvp:v=>{pvp=!!v;},
+  show:s=>show(s),
+  walkTo:v=>{rabX=v;placeRab();},
+  enter:()=>enterBoard(),
+  screen:()=>["world","inside","map","game"].find(s=>$(s).classList.contains("on")),
+  list:()=>FLAT.map(x=>x.key+":"+x.t+":"+x.name),
+  state:()=>({key:cur?cur.key:null,t:cur?cur.t:null,over,dblStep,pvp,turn,
+    msg:lastMsg,demoDone,hist:hist.length,stars:starCount(),
+    board:B?B.map(x=>x.join("")).join("|"):null,
+    notes:hist.map((h,i)=>i+":"+(h.note||"-"))}),
+  startLv:lv=>start(lv),
+  hint:()=>{const h=suggest(B);return h?{pt:h.pt,why:h.why}:null;},
+  setB:v=>{B=v;draw();},
+  pstate:()=>({koPt,passCnt,capMe,capAI,busy,over,msgTxt:$("msg").textContent}),
+  scoreGame:()=>scoreGame(),
+  doPass:()=>doPass()
+};
+if(/[?#&]all/.test(location.search+location.hash)){
+  FLAT.forEach(l=>prog[l.key]=true);
+  localStorage.setItem(LSP,JSON.stringify(prog));
+}
+let tapN=0,tapT=0;
+$("ttl").onclick=()=>{
+  const now=Date.now();tapN=(now-tapT<800)?tapN+1:1;tapT=now;
+  if(tapN!==7)return;
+  tapN=0;
+  if(FLAT.some(l=>!prog[l.key])){
+    FLAT.forEach(l=>prog[l.key]=true);
+    localStorage.setItem(LSP,JSON.stringify(prog));
+    refreshStars();buildMap();confetti();say("家长模式：全部关卡已解锁");
+  }else if(confirm("全部进度将清零，孩子从第一关重新开始。确定吗？")){
+    localStorage.clear();location.reload();
+  }
+};
+buildMap();refreshStars();show("world");
+const chJump=new URLSearchParams(location.search).get("ch");
+if(chJump){show("map");
+  setTimeout(()=>{const cards=document.querySelectorAll('#map .chap');
+    const c=cards[+chJump-1];if(c)c.scrollIntoView({block:"center"});},80);}
+</script>
+</body>
+</html>
