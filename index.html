@@ -111,12 +111,17 @@
   .shake { animation:shk .3s; }
   @keyframes shk { 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   #world { position:relative; width:100%; }
-  #plaza { position:relative; width:100%; aspect-ratio:16/9; border-radius:18px; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.28); touch-action:none; cursor:pointer; background:#CFE8F7; }
+  #plaza { position:relative; width:100vw; margin-left:calc(50% - 50vw); height:min(76vh,calc(100vh - 200px)); border-radius:0; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.18); touch-action:none; cursor:pointer; background:#CFE8F7; }
   #plazaBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   #rab { position:absolute; height:30%; bottom:4%; left:50%; transform:translateX(-50%); transition:left 1.05s ease,transform .2s ease; pointer-events:none; filter:drop-shadow(0 5px 5px rgba(0,0,0,.18)); animation:bob 1.6s ease-in-out infinite; }
   @keyframes bob { 50%{ margin-bottom:6px; } }
   .hot { position:absolute; transform:translate(-50%,-50%); background:rgba(255,255,255,.84); border:2px solid #fff; border-radius:999px; padding:5px 11px; font-size:13px; font-weight:700; color:#3A5A78; cursor:pointer; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.2); }
   .hot.lock { opacity:.55; color:#888; }
+  .hot.dot { padding:2px 5px; font-size:11px; background:rgba(255,255,255,.55); border-width:1px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  @media (max-width:480px){ .hot.dot{font-size:10px;padding:1px 4px;} }
+  .hot.cur { font-size:16px; padding:8px 15px; border-color:#F5B942; background:rgba(255,252,240,.95); }
+  .hot.cur .pinIco { display:inline-block; animation:pinbob2 1.6s ease-in-out infinite; }
+  @keyframes pinbob2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
   .hot:active { transform:translate(-50%,-50%) scale(.93); }
   #wHint, #iHint { text-align:center; color:#6E8A7C; font-size:15px; margin:10px 0 2px; min-height:22px; }
   #fade, #ifade { position:absolute; inset:0; background:#EAF4EE; opacity:0; pointer-events:none; transition:opacity .45s; z-index:5; }
@@ -1167,16 +1172,32 @@ const HOT=[[8,56],[67,54],[88,58],[6,80],[24,50],[50,80],[63,12],[35,63],[74,44]
 const BOARD_CH=5;
 function buildHotspots(){
   const box=$("hotspots");if(!box)return;box.innerHTML="";
-  CH.forEach((ch,i)=>{const pos=HOT[i]||[50,50],unlocked=chapUnlocked(i);
+  // 只有"当前目的地"是完整地图钉标签,其余全部缩成小圆点(🔒/⭐/emoji)
+  let curI=CH.findIndex((ch,i)=>chapUnlocked(i)&&!ch.levels.every(l=>prog[l.key]));
+  if(curI<0)curI=CH.length-1;
+  const dotPos=i=>HOT[i]||[6+((i-HOT.length)%8)*12.5,7+Math.floor((i-HOT.length)/8)*8];
+  CH.forEach((ch,i)=>{
+    const unlocked=chapUnlocked(i),done=ch.levels.every(l=>prog[l.key]);
+    const pos=dotPos(i);
     const b=document.createElement("button");
-    b.className="hot"+((unlocked||i===BOARD_CH)?"":" lock");
     b.style.left=pos[0]+"%";b.style.top=pos[1]+"%";
-    b.textContent=i===BOARD_CH?"⚔️ 大决战":( (unlocked?"":"🔒")+ch.emo+(ch.name.split("·")[0]||"").trim() );
+    if(i===BOARD_CH&&i!==curI){
+      b.className="hot dot"+(unlocked?"":" lock");
+      b.textContent=unlocked?"⚔️":"🔒";b.title="大决战";
+    }else if(i===curI){
+      b.className="hot cur";
+      b.innerHTML='<span class="pinIco">📍</span> '+ch.emo+' '+(ch.name.split("·")[0]||"").trim();
+    }else{
+      b.className="hot dot"+(unlocked?"":" lock");
+      b.textContent=unlocked?(done?"⭐":ch.emo):"🔒";
+      b.title=(ch.name.split("·")[0]||"").trim();
+    }
     b.onclick=ev=>{ev.stopPropagation();startAmbient();
       if(i===BOARD_CH){walkToPct(.5);setTimeout(()=>enterBoard(),650);return;}
       if(!unlocked){msgWorld("先通过前面的世界，这座冰屋才会亮哦！");return;}
       walkToPct(pos[0]/100);setTimeout(()=>enterChapter(i),650);};
-    box.appendChild(b);});
+    box.appendChild(b);
+  });
 }
 function enterChapter(i){
   $("fade").classList.add("on");say(CH[i].name.split("·")[0]);

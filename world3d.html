@@ -868,7 +868,7 @@ const keys={};
 addEventListener('keydown',e=>{keys[e.key]=true;
   if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.key]=false;});
-addEventListener('wheel',e=>{camDist=Math.min(15,Math.max(5.5,camDist+e.deltaY*.008));},{passive:true});
+addEventListener('wheel',e=>{camDist=Math.min(45,Math.max(5.5,camDist+e.deltaY*.012));},{passive:true});
 const pts=new Map();let pinchD=0;
 let pdX=0,pdY=0,dragging=false,downOnCanvas=false;
 renderer.domElement.addEventListener('pointerdown',e=>{
@@ -881,7 +881,7 @@ renderer.domElement.addEventListener('pointermove',e=>{
   if(pts.has(e.pointerId))pts.set(e.pointerId,[e.clientX,e.clientY]);
   if(pts.size===2){
     const a=[...pts.values()];const d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);
-    if(pinchD>0)camDist=Math.min(15,Math.max(5.5,camDist-(d-pinchD)*.03));
+    if(pinchD>0)camDist=Math.min(45,Math.max(5.5,camDist-(d-pinchD)*.05));
     pinchD=d;dragging=true;return;
   }
   if(!downOnCanvas)return;
@@ -981,7 +981,7 @@ function step(now){
     if(stuckMs>1200){camDist=Math.min(15,camDist+6);stuckMs=-3500;}
   }else stuckMs=0;
   stuckPX=player.position.x;stuckPZ=player.position.z;
-  const hh=2.4+camDist*.30;
+  const hh=2.4+camDist*.30+Math.max(0,camDist-15)*.55;
   let want,look;
   if(playMode){want=new THREE.Vector3(0,15.5,-4);look=new THREE.Vector3(0,.7,-17);}
   else if(window.__photo){
