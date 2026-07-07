@@ -13,8 +13,12 @@
     display:flex; flex-direction:column; align-items:center; user-select:none;
   }
   header { width:100%; max-width:540px; display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
-  header .ttl { font-size:21px; font-weight:700; color:#B5651D; }
-  .pill { border:none; background:#FFE3B3; color:#7a4a12; font-size:17px; padding:8px 13px; border-radius:999px; cursor:pointer; font-weight:600; }
+  header .ttl { font-size:clamp(14px,3.4vw,21px); font-weight:700; color:#B5651D; white-space:nowrap; }
+  .pill { border:none; background:#FFE3B3; color:#7a4a12; font-size:17px; padding:8px 13px; border-radius:999px; cursor:pointer; font-weight:600; white-space:nowrap; }
+  @media (max-width:480px){
+    header{padding:8px 8px;gap:4px;}
+    .pill{font-size:13px;padding:6px 8px;}
+  }
   .pill:active { transform:scale(.95); }
   main { width:100%; max-width:540px; flex:1; display:flex; flex-direction:column; align-items:center; padding:0 12px 24px; }
   .screen { width:100%; display:none; flex-direction:column; align-items:center; }
@@ -27,7 +31,34 @@
   .pline { flex:1; height:3px; min-width:8px; background:#EFEAE0; border-radius:2px; }
   .pline.done { background:#BFE3C8; }
   #pathlabel { font-size:13px; color:#a98a52; white-space:nowrap; font-weight:700; margin-left:4px; }
+  #rankbar { width:100%; background:#fff; border-radius:14px; padding:9px 12px 7px; margin:6px 0 4px; }
+  .rkline { display:flex; align-items:center; gap:4px; }
+  .rk { font-size:11px; font-weight:700; color:#B5651D; white-space:nowrap; }
+  .rk.dim { color:#c2b89f; }
+  .rl { flex:1; height:4px; border-radius:2px; background:#EFEAE0; position:relative; overflow:hidden; min-width:10px; }
+  .rl i { position:absolute; left:0; top:0; bottom:0; background:#7CC08F; border-radius:2px; }
+  .rl.dash { flex:.7; background:repeating-linear-gradient(90deg,#ddd 0 5px,transparent 5px 9px); }
+  .rkfuture { font-size:10px; color:#c2b89f; white-space:nowrap; margin-left:2px; }
+  #chips { width:100%; display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 6px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; border:2px solid #eee; background:#fff;
+    border-radius:999px; padding:4px 10px; font-size:13px; font-weight:700; color:#7a4a12;
+    cursor:pointer; font-family:inherit; }
+  .chip:active { transform:scale(.95); }
+  .chip.lock { background:#F4EFE6; color:#b0a48d; }
+  .chip.done { background:#F1F8EE; }
+  .chip.cur { box-shadow:0 0 0 3px rgba(245,185,66,.35); }
+  .rankb { font-size:10px; font-weight:700; background:#FFF1C9; color:#a9772a; border-radius:999px;
+    padding:1px 6px; white-space:nowrap; }
+  #rankNote { width:100%; text-align:center; font-size:11px; color:#b3a184; margin:8px 0 2px; line-height:1.6; }
   .chap { width:100%; background:#fff; border-radius:22px; padding:14px 16px; margin:8px 0; border:3px solid #eee; }
+  .chap.cur { position:relative; margin-top:18px; box-shadow:0 6px 16px rgba(120,80,20,.16); }
+  .chap.cur .pin { position:absolute; top:-14px; left:-5px; font-size:32px; z-index:2;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.28)); animation:pinbob 1.6s ease-in-out infinite; }
+  @keyframes pinbob { 50% { transform:translateY(-5px); } }
+  #mapToast { position:fixed; left:50%; bottom:64px; transform:translateX(-50%); max-width:86vw;
+    background:rgba(74,51,24,.92); color:#fff; padding:9px 16px; border-radius:999px; font-size:14px;
+    z-index:60; opacity:0; pointer-events:none; transition:opacity .3s; white-space:nowrap; }
+  #mapToast.on { opacity:1; }
   .chap h2 { font-size:19px; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   .chap h2 .cnt { margin-left:auto; font-size:15px; color:#b08a4f; }
   .nodes { display:flex; gap:10px; flex-wrap:wrap; }
@@ -65,6 +96,18 @@
   .gloss { background:#FFF1C9; border-radius:12px; padding:8px 12px; margin:6px 0; font-size:14px; }
   .confetti { position:fixed; top:-40px; font-size:28px; z-index:99; animation:fall 1.4s ease-in forwards; pointer-events:none; }
   @keyframes fall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
+  .petal { position:fixed; top:-30px; z-index:99; pointer-events:none;
+    width:14px; height:10px; border-radius:60% 40% 55% 45%;
+    background:radial-gradient(ellipse at 35% 35%, #FFE3EC 0%, #FFB7CE 55%, #F797B8 100%);
+    box-shadow:0 0 3px rgba(255,182,206,.5);
+    animation:petalFall linear forwards; }
+  @keyframes petalFall {
+    0%   { transform:translate(0,0) rotate(0deg); opacity:1; }
+    25%  { transform:translate(28px,26vh) rotate(140deg); }
+    50%  { transform:translate(-22px,52vh) rotate(260deg); opacity:.95; }
+    75%  { transform:translate(24px,78vh) rotate(400deg); }
+    100% { transform:translate(-14px,106vh) rotate(520deg); opacity:.25; }
+  }
   .shake { animation:shk .3s; }
   @keyframes shk { 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   #world { position:relative; width:100%; }
@@ -91,6 +134,7 @@
     <button class="pill" id="worldBtn" style="display:none">🌿 看风景</button>
     <button class="pill" id="stars">⭐ 0</button>
     <button class="pill" id="sndBtn">🔊</button>
+    <button class="pill" id="langBtn" title="语音语言">🗣 中</button>
     <button class="pill" id="parentBtn">👪</button>
   </div>
 </header>
@@ -130,7 +174,8 @@
 <div id="modal"><div class="box" id="modalBody"></div></div>
 
 <script src="levels5k.js?v=2"></script>
-<script src="assets/voice/manifest.js?v=5"></script>
+<script src="levels_dan.js?v=1" onerror="this.remove()"></script>
+<script src="assets/voice/manifest.js?v=6"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -310,6 +355,7 @@ if(window.QK5){
   if(QK5.extend7)CH[6].levels.push(...QK5.extend7);
   if(QK5.chapters)QK5.chapters.forEach(ch=>CH.push(ch));
 }
+if(window.QDAN&&QDAN.chapters){QDAN.chapters.forEach(c=>CH.push(c));}
 const FLAT=[]; CH.forEach(ch=>ch.levels.forEach((lv,i)=>{lv.key="c"+ch.id+"l"+(i+1); lv.ch=ch; FLAT.push(lv);}));
 
 /* ---------- 画板 ---------- */
@@ -368,18 +414,42 @@ function bestVoice(){
   return voiceList[0]||null;
 }
 let VOMAP=null,VOID=null,curAudio=null;
+/* 语音语言：zh / en / de（localStorage 键 qz_lang，与 3D 版共用） */
+let LANG=localStorage.getItem("qz_lang")||"zh";
+if(LANG!=="zh"&&LANG!=="en"&&LANG!=="de")LANG="zh";
+/* 手机音频解锁：首次触摸前 say() 直接丢弃；首次 pointerdown 播一次静音并 resume TTS */
+let audioUnlocked=false;
+window.addEventListener("pointerdown",()=>{
+  if(audioUnlocked)return;audioUnlocked=true;
+  try{const a=new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
+    a.volume=0;a.play().catch(()=>{});}catch(e){}
+  try{speechSynthesis.resume();}catch(e){}
+},{once:true,capture:true});
 function loadVO(j){if(!j||!j.lines)return;VOMAP={};VOID={};
-  Object.entries(j.lines).forEach(([id,o])=>{VOID[id]=o.file;if(o.lang==="zh")VOMAP[o.text]=o.file;});}
+  Object.entries(j.lines).forEach(([id,o])=>{VOID[id]=o;if(o.lang==="zh")VOMAP[o.text]=o;});}
 if(window.VOICE_MANIFEST)loadVO(window.VOICE_MANIFEST);
 else fetch("assets/voice/manifest.json").then(r=>r.ok?r.json():null).then(loadVO).catch(()=>{});
 function playVO(f){try{if(curAudio)curAudio.pause();curAudio=new Audio("assets/voice/"+f);
   curAudio.play().catch(()=>{});try{speechSynthesis.cancel();}catch(e){}return true;}catch(e){return false;}}
-function sayId(id){if(!soundOn)return;if(VOID&&VOID[id]){playVO(VOID[id]);}}
-function say(t){if(!soundOn)return;
-  if(VOMAP&&VOMAP[t]&&playVO(VOMAP[t]))return;
-  try{const u=new SpeechSynthesisUtterance(t);u.lang="zh-CN";u.rate=0.8;u.pitch=1.02;
-    const v=bestVoice();if(v)u.voice=v;
+function tts(t,lg){
+  try{if(curAudio)curAudio.pause();}catch(e){}
+  try{const u=new SpeechSynthesisUtterance(t);u.lang=lg||"zh-CN";u.rate=0.8;u.pitch=1.02;
+    if(!lg||lg==="zh-CN"){const v=bestVoice();if(v)u.voice=v;}
     speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+/* 播放一条 manifest 行：非中文优先 line.tr[LANG].file，再 tr[LANG].text 走 TTS，否则回落中文 mp3 */
+function playLine(line){
+  if(!line)return false;
+  if(LANG!=="zh"&&line.tr&&line.tr[LANG]){
+    const tr=line.tr[LANG];
+    if(tr.file&&playVO(tr.file))return true;
+    if(tr.text){tts(tr.text,LANG==="en"?"en-US":"de-DE");return true;}
+  }
+  return line.file?playVO(line.file):false;
+}
+function sayId(id){if(!soundOn||!audioUnlocked)return;if(VOID&&VOID[id]){playLine(VOID[id]);}}
+function say(t){if(!soundOn||!audioUnlocked)return;
+  if(VOMAP&&VOMAP[t]&&playLine(VOMAP[t]))return;
+  tts(t,"zh-CN");}
 let actx=null;
 function tone(seq){if(!soundOn)return;
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let t=actx.currentTime;
@@ -391,54 +461,119 @@ function tone(seq){if(!soundOn)return;
 const sPlace=()=>tone([[440,.08]]),sCap=()=>tone([[660,.1],[880,.12]]),
       sWin=()=>tone([[523,.12],[659,.12],[784,.12],[1047,.25]]),sNo=()=>tone([[180,.18]]);
 function msg(t,speak){lastMsg=t;$("msg").textContent=t;if(speak!==false)say(t);}
-function confetti(){const e=["🎉","⭐","🎈","🍭","✨"];
-  for(let i=0;i<22;i++){const s=document.createElement("span");s.className="confetti";
-    s.textContent=e[i%e.length];s.style.left=(Math.random()*95)+"vw";
-    s.style.animationDelay=(Math.random()*.4)+"s";document.body.appendChild(s);
-    setTimeout(()=>s.remove(),1900);}}
+function confetti(){
+  // 樱花满屏(孩子的胜利礼)
+  for(let i=0;i<34;i++){
+    const s=document.createElement("span");
+    const emoji=i%5===0;
+    if(emoji){s.className="confetti";s.textContent="🌸";s.style.fontSize=(16+Math.random()*14)+"px";
+      s.style.animation="petalFall "+(2.2+Math.random()*1.6)+"s linear forwards";}
+    else{s.className="petal";
+      const sc=.7+Math.random()*1.1;s.style.width=(14*sc)+"px";s.style.height=(10*sc)+"px";
+      s.style.animationDuration=(2.2+Math.random()*1.8)+"s";}
+    s.style.left=(Math.random()*98)+"vw";
+    s.style.animationDelay=(Math.random()*.9)+"s";
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),4600);
+  }
+}
 const starCount=()=>Object.values(prog).filter(Boolean).length;
 const refreshStars=()=>$("stars").textContent="⭐ "+starCount();
 function saveWin(){prog[cur.key]=true;localStorage.setItem(LSP,JSON.stringify(prog));refreshStars();}
 
 /* ---------- 地图 ---------- */
+/* 体验模式（家长区开关）：qz2_freeplay=1 时所有章节/关卡视为解锁，但不改 prog、不发星星 */
+function freeplay(){return localStorage.getItem("qz2_freeplay")==="1";}
+function chapDone(i){return CH[i].levels.every(l=>prog[l.key]);}
+/* 章节知识点对应的常见级位区间徽章 */
+function chRank(id){
+  if(id>=1&&id<=5)return"25K–22K 启蒙";
+  if(id===6)return"22K–20K 实战";
+  if(id===7)return"20K–18K";
+  if(id>=21&&id<=23)return"18K–15K";
+  if(id>=31&&id<=36)return"15K–12K";
+  if(id>=41&&id<=43)return"12K–10K";
+  if(id>=51&&id<=54)return"10K–8K";
+  if(id>=61&&id<=63)return"阶梯·冲5K";
+  if(id>=71&&id<=76)return"5K–1K 试炼";
+  if(id>=81&&id<=84)return"1D–5D 试炼";
+  return"";
+}
+let mapSel=-1; /* 用户点 chip 选中的章节；-1=自动跟随当前进度 */
+function mapToast(t){
+  let d=$("mapToast");
+  if(!d){d=document.createElement("div");d.id="mapToast";document.body.appendChild(d);}
+  d.textContent=t;d.classList.add("on");
+  clearTimeout(mapToast._t);mapToast._t=setTimeout(()=>d.classList.remove("on"),2200);
+}
 function buildMap(){
   const m=$("map");m.innerHTML="";
-  const pb=document.createElement("div");pb.id="pathbar";
-  let curFound=false, curName="";
+  const fp=freeplay();
+  /* 当前章 = 第一个未完成的章（顺序解锁下即"第一个未完成且已解锁"） */
+  let curIdx=CH.findIndex((c,i)=>!chapDone(i));
+  if(curIdx<0)curIdx=CH.length-1;
+  let sel=mapSel;
+  if(sel<0||sel>=CH.length||!(fp||chapUnlocked(sel)))sel=curIdx;
+  /* 顶部晋升路线：25K→10K→5K 实线（按整章通关比例填充），之后灰色虚段=未来内容 */
+  const doneN=CH.reduce((a,c,i)=>a+(chapDone(i)?1:0),0);
+  const f=CH.length?doneN/CH.length:0;
+  const f1=Math.round(Math.min(1,f*2)*100),f2=Math.round(Math.max(0,Math.min(1,(f-.5)*2))*100);
+  const rb=document.createElement("div");rb.id="rankbar";
+  rb.innerHTML=`<div class="rkline">
+    <span class="rk">25K</span><span class="rl"><i style="width:${f1}%"></i></span>
+    <span class="rk">10K</span><span class="rl"><i style="width:${f2}%"></i></span>
+    <span class="rk">5K</span><span class="rl dash"></span>
+    <span class="rk dim">1K</span><span class="rl dash"></span>
+    <span class="rk dim">1D</span><span class="rl dash"></span>
+    <span class="rk dim">5D</span><span class="rkfuture">未来内容</span>
+  </div>`;
+  m.appendChild(rb);
+  /* 章节 chips：当前章高亮；已通关=emoji+⭐；未解锁=🔒；每个带级位徽章 */
+  const chips=document.createElement("div");chips.id="chips";
   CH.forEach((ch,i)=>{
-    const done=ch.levels.every(l=>prog[l.key]);
-    const d=document.createElement("span");
-    d.className="pdot"+(done?" done":(!curFound?" cur":""));
-    if(!done&&!curFound){curFound=true;curName=(ch.name.split("·")[0]||"").trim();}
-    d.title=ch.name;
-    d.onclick=()=>{const cards=document.querySelectorAll('#map .chap');if(cards[i])cards[i].scrollIntoView({block:"center",behavior:"smooth"});};
-    pb.appendChild(d);
-    if(i<CH.length-1){const l=document.createElement("span");l.className="pline"+(done?" done":"");pb.appendChild(l);}
+    const unlocked=fp||chapUnlocked(i);
+    const cd=chapDone(i);
+    const chip=document.createElement("button");
+    chip.className="chip"+(i===sel?" cur":"")+(unlocked?"":" lock")+(cd?" done":"");
+    chip.title=ch.name;
+    const nm=(ch.name.split("·")[0]||"").trim();
+    const rk=chRank(ch.id);
+    const badge=rk?`<span class="rankb">${rk}</span>`:"";
+    chip.innerHTML=(unlocked?(cd?`<span>${ch.emo}⭐</span>`:`<span>${ch.emo}${nm}</span>`):`<span>🔒</span>`)+badge;
+    if(unlocked)chip.style.borderColor=ch.color;
+    chip.onclick=()=>{
+      if(!unlocked){mapToast("先通过前面的章节哦");say("先通过前面的章节哦");return;}
+      mapSel=i;buildMap();
+      const card=document.querySelector("#map .chap.cur");
+      if(card)card.scrollIntoView({block:"center",behavior:"smooth"});
+    };
+    chips.appendChild(chip);
   });
-  const lab=document.createElement("span");lab.id="pathlabel";
-  lab.textContent=curName?("→ "+curName):"全部通关 🎉";
-  pb.appendChild(lab);
-  m.appendChild(pb);
-  let unlocked=true;
-  CH.forEach(ch=>{
-    const d=document.createElement("div");d.className="chap";d.style.borderColor=ch.color;
-    const done=ch.levels.filter(l=>prog[l.key]).length;
-    const ZIMG={1:"zone_gate",7:"zone_lounge",8:"zone_spring",10:"zone_temple"};
-    const zi=ZIMG[ch.id]?`<img src="assets/v2/${ZIMG[ch.id]}.png" style="width:100%;height:88px;object-fit:cover;border-radius:14px;margin-bottom:8px" onerror="this.remove()">`:"";
-    d.innerHTML=zi+`<h2>${ch.emo} ${ch.name}<span class="cnt">⭐${done}/${ch.levels.length}</span></h2>`;
-    const ns=document.createElement("div");ns.className="nodes";
-    ch.levels.forEach(lv=>{
-      const n=document.createElement("div");
-      const lock=!unlocked;
-      n.className="node"+(lock?" lock":"")+(prog[lv.key]?" done":"");
-      if(!lock)n.style.background=ch.color;
-      n.innerHTML=`<span class="ic">${lock?"🔒":lv.ic}</span>${lv.name}`;
-      n.onclick=()=>{if(lock){msg("先通过前面的关卡哦！");say("先通过前面的关卡哦");return;}start(lv);};
-      ns.appendChild(n);
-      if(!prog[lv.key])unlocked=false;
-    });
-    d.appendChild(ns);m.appendChild(d);
+  m.appendChild(chips);
+  /* 当前章：完整卡片 + 📍 大头针 */
+  const ch=CH[sel];
+  const d=document.createElement("div");d.className="chap cur";d.style.borderColor=ch.color;
+  const done=ch.levels.filter(l=>prog[l.key]).length;
+  const ZIMG={1:"zone_gate",7:"zone_lounge",8:"zone_spring",10:"zone_temple"};
+  const zi=ZIMG[ch.id]?`<img src="assets/v2/${ZIMG[ch.id]}.png" style="width:100%;height:88px;object-fit:cover;border-radius:14px;margin-bottom:8px" onerror="this.remove()">`:"";
+  const rk=chRank(ch.id);
+  d.innerHTML=`<span class="pin">📍</span>`+zi+`<h2>${ch.emo} ${ch.name}${rk?`<span class="rankb">${rk}</span>`:""}<span class="cnt">⭐${done}/${ch.levels.length}</span></h2>`;
+  const ns=document.createElement("div");ns.className="nodes";
+  let firstOpen=FLAT.findIndex(l=>!prog[l.key]);if(firstOpen<0)firstOpen=FLAT.length;
+  ch.levels.forEach(lv=>{
+    const n=document.createElement("div");
+    const lock=!fp&&FLAT.indexOf(lv)>firstOpen;
+    n.className="node"+(lock?" lock":"")+(prog[lv.key]?" done":"");
+    if(!lock)n.style.background=ch.color;
+    n.innerHTML=`<span class="ic">${lock?"🔒":lv.ic}</span>${lv.name}`;
+    n.onclick=()=>{if(lock){mapToast("先通过前面的关卡哦！");msg("先通过前面的关卡哦！");say("先通过前面的关卡哦");return;}start(lv);};
+    ns.appendChild(n);
   });
+  d.appendChild(ns);m.appendChild(d);
+  /* 底部小字说明 */
+  const note=document.createElement("div");note.id="rankNote";
+  note.textContent="级位徽章 = 本章知识点常见对应区间；真实棋力需要题量 + 真人对局，通关 ≠ 达标";
+  m.appendChild(note);
 }
 function show(s){
   ["world","inside","map","game"].forEach(id=>$(id).classList.toggle("on",s===id));
@@ -501,16 +636,25 @@ function start(lv){
 
 /* ---------- 演示模式 ---------- */
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitSpeech(cap){
+  const t0=performance.now();
+  while(performance.now()-t0<(cap||9000)){
+    let talking=false;
+    try{talking=(curAudio&&!curAudio.paused&&!curAudio.ended)||(window.speechSynthesis&&speechSynthesis.speaking);}catch(e){}
+    if(!talking)return;
+    await wait(150);
+  }
+}
 async function runDemo(script,tok){
   msg("看好啦！",false);
   for(const st of script){
     if(tok.dead)return;
     const[op,...a]=st;
-    if(op==="say"){msg(a[0]);await wait((a[1]||2000)*1.45);}
+    if(op==="say"){msg(a[0]);await wait((a[1]||2000)*1.45);await waitSpeech();if(tok.dead)return;}
     else if(op==="place"){B[a[0]][a[1]]=a[2];lastMove=[a[0],a[1],a[2]];sPlace();draw();await wait((a[3]||700)*1.4);}
     else if(op==="libs"){const g=groupLibs(B,a[0],a[1]);
       marks=[...g.libs].map(k=>{const[x,y]=k2p(k);return{c:x,r:y,t:"lib"};});draw();
-      if(a[2])msg(a[2]);await wait((a[3]||2000)*1.45);}
+      if(a[2])msg(a[2]);await wait((a[3]||2000)*1.45);await waitSpeech();if(tok.dead)return;}
     else if(op==="clear"){marks=[];draw();}
     else if(op==="warn"){marks=[{c:a[0],r:a[1],t:"warn"}];draw();await wait((a[2]||400)*1.5);}
     else if(op==="warn2"){marks.push({c:a[0],r:a[1],t:"warn"});draw();await wait(400);}
@@ -932,6 +1076,14 @@ $("backBtn").onclick=()=>{if(demoTok)demoTok.dead=true;show("map");};
 $("sndBtn").onclick=()=>{soundOn=!soundOn;$("sndBtn").textContent=soundOn?"🔊":"🔇";
   if(!soundOn){try{speechSynthesis.cancel();}catch(e){}stopAmbient();}
   else if($("world").classList.contains("on"))startAmbient();};
+const LANG_LABEL={zh:"🗣 中",en:"🗣 EN",de:"🗣 DE"};
+function refreshLangBtn(){$("langBtn").textContent=LANG_LABEL[LANG]||"🗣 中";}
+$("langBtn").onclick=()=>{
+  LANG=LANG==="zh"?"en":LANG==="en"?"de":"zh";
+  localStorage.setItem("qz_lang",LANG);
+  refreshLangBtn();
+};
+refreshLangBtn();
 window.addEventListener("resize",()=>{if(cur&&$("game").classList.contains("on"))layout();});
 
 /* ---------- 家长区：今日任务 + 名词卡 + 免费宝库 ---------- */
@@ -946,6 +1098,11 @@ function parentHTML(){
   <div class="task"><input type="checkbox" id="t0" ${tk[0]?"checked":""}> 看动画《小喵小汪学围棋》第 ${EP} 集（B站搜索，约15分钟）</div>
   <div class="task"><input type="checkbox" id="t1" ${tk[1]?"checked":""}> 棋子大冒险闯关 1–2 关（约15分钟）</div>
   <div class="task"><input type="checkbox" id="t2" ${tk[2]?"checked":""}> ${isWeekend?"COSUMI 5路实战 1盘：<a href='https://playgo.to/cn' target='_blank'>playgo.to/cn</a>":"和孩子下一盘吃子棋（勇士谷·家人模式）"}</div>
+  <h3>🧪 体验模式</h3>
+  <div class="task" style="flex-wrap:wrap">
+    <button class="big blue" id="freeBtn" style="flex:1;min-width:200px">${freeplay()?"🔒 恢复闯关模式":"🔓 体验模式：打开所有锁"}</button>
+  </div>
+  <p style="color:#999;font-size:13px">体验模式只是临时打开所有章节的锁，方便家长快速浏览内容；不改变孩子的闯关进度，也不会发星星。</p>
   <h3>🔈 语音音色</h3>
   <div class="task" style="flex-wrap:wrap">
     <select id="voiceSel" style="flex:1;min-width:160px;font-size:15px;padding:6px;border-radius:8px;border:2px solid #F4C879">
@@ -976,6 +1133,13 @@ $("parentBtn").onclick=()=>{
     tk[i]=$(id).checked;localStorage.setItem(LST+dayIdx,JSON.stringify(tk));};});
   $("voiceSel").onchange=()=>{chosenVoice=$("voiceSel").value;localStorage.setItem("qz2_voice",chosenVoice);};
   $("voiceTry").onclick=()=>say("小兔子你好呀！我是糯糯，深呼吸，慢慢想，糯糯陪着你。");
+  $("freeBtn").onclick=()=>{
+    if(freeplay())localStorage.removeItem("qz2_freeplay");
+    else localStorage.setItem("qz2_freeplay","1");
+    $("freeBtn").textContent=freeplay()?"🔒 恢复闯关模式":"🔓 体验模式：打开所有锁";
+    if($("map").classList.contains("on"))buildMap();
+    if($("world").classList.contains("on"))buildHotspots();
+  };
   $("closeModal").onclick=()=>$("modal").classList.remove("on");
 };
 
@@ -996,7 +1160,7 @@ function floodKeyURL(img){
 function loadRabbit(){const img=new Image();
   img.onload=()=>{try{$("rab").src=floodKeyURL(img);}catch(e){$("rab").src=img.src;}rabReady=true;};
   img.onerror=()=>{rabReady=true;};img.src=ASSETDIR+"rabbit_side.png";}
-function chapUnlocked(i){if(i===0)return true;return CH[i-1].levels.every(l=>prog[l.key]);}
+function chapUnlocked(i){if(freeplay())return true;if(i===0)return true;return CH[i-1].levels.every(l=>prog[l.key]);}
 function placeRab(){const r=$("rab");if(r){r.style.left=(rabX*100)+"%";r.style.transform="translateX(-50%) scaleX("+rabFace+")";}}
 function walkToPct(p){rabFace=(p<rabX)?-1:1;rabX=Math.max(.1,Math.min(.9,p));placeRab();}
 const HOT=[[8,56],[67,54],[88,58],[6,80],[24,50],[50,80],[63,12],[35,63],[74,44],[50,36]];
@@ -1016,8 +1180,7 @@ function buildHotspots(){
 }
 function enterChapter(i){
   $("fade").classList.add("on");say(CH[i].name.split("·")[0]);
-  setTimeout(()=>{show("map");$("fade").classList.remove("on");
-    const cards=document.querySelectorAll('#map .chap');if(cards[i])cards[i].scrollIntoView({block:"center"});},460);
+  setTimeout(()=>{mapSel=i;show("map");$("fade").classList.remove("on");},460);
 }
 function enterBoard(){
   $("fade").classList.add("on");say("走进棋盘里面看看！");
@@ -1028,8 +1191,7 @@ $("duelBtn").onclick=()=>{
   startAmbient();
   if(chapUnlocked(BOARD_CH)){
     $("ifade").classList.add("on");say("勇士谷，大决战！");
-    setTimeout(()=>{show("map");$("ifade").classList.remove("on");
-      const cards=document.querySelectorAll('#map .chap');if(cards[BOARD_CH])cards[BOARD_CH].scrollIntoView({block:"center"});},460);
+    setTimeout(()=>{mapSel=BOARD_CH;show("map");$("ifade").classList.remove("on");},460);
   }else{
     $("iHint").textContent="先点亮广场上的冰屋、学会所有本领，再来决战！";say("先去冰屋练本领哦");
     setTimeout(()=>$("iHint").textContent=INSIDE_HINT,2600);
@@ -1112,9 +1274,10 @@ $("ttl").onclick=()=>{
 };
 buildMap();refreshStars();show("world");
 const chJump=new URLSearchParams(location.search).get("ch");
-if(chJump){show("map");
-  setTimeout(()=>{const cards=document.querySelectorAll('#map .chap');
-    const c=cards[+chJump-1];if(c)c.scrollIntoView({block:"center"});},80);}
+if(chJump){
+  const ci=Math.min(Math.max((+chJump||1)-1,0),CH.length-1);
+  mapSel=ci;show("map");
+}
 </script>
 </body>
 </html>

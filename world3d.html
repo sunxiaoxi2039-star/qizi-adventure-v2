@@ -71,10 +71,11 @@
   <label>🗣️ 老师 <input type="range" id="vVoice" min="0" max="100" value="100"></label>
   <label>🌬️ 自然 <input type="range" id="vAmb" min="0" max="100" value="40"></label>
   <label>🔔 音效 <input type="range" id="vUi" min="0" max="100" value="70"></label>
+  <label>🌍 语言 <select id="vLang"><option value="zh">中文</option><option value="en">English</option><option value="de">Deutsch</option></select></label>
 </div>
 <div id="mini" title="点我回到出发点"></div><div id="mnext"></div>
 <script src="levels5k.js?v=2"></script>
-<script src="assets/voice/manifest.js?v=5"></script>
+<script src="assets/voice/manifest.js?v=6"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -135,6 +136,8 @@ $('volBtn').onclick=()=>{const v=$('vol');v.style.display=v.style.display==='blo
 let actx=null,ambGain=null;
 function saveCfg(){localStorage.setItem('qz3_vol',JSON.stringify(CFG));}
 $('vVoice').oninput=e=>{CFG.voice=e.target.value/100;saveCfg();};
+try{$('vLang').value=localStorage.getItem('qz_lang')||'zh';}catch(e){}
+$('vLang').onchange=e=>{try{localStorage.setItem('qz_lang',e.target.value);}catch(err){}};
 $('vAmb').oninput=e=>{CFG.ambient=e.target.value/100;saveCfg();if(ambGain)ambGain.gain.value=CFG.ambient*.3;};
 $('vUi').oninput=e=>{CFG.ui=e.target.value/100;saveCfg();};
 function noiseBuf(ctx){
@@ -149,19 +152,34 @@ function startAmbient(){
     actx=new (window.AudioContext||window.webkitAudioContext)();
     ambGain=actx.createGain();ambGain.gain.value=CFG.ambient*.3;ambGain.connect(actx.destination);
     const buf=noiseBuf(actx);
-    const wind=actx.createBufferSource();wind.buffer=buf;wind.loop=true;
-    const wf=actx.createBiquadFilter();wf.type='lowpass';wf.frequency.value=320;
-    const wg=actx.createGain();wg.gain.value=.32;
-    wind.connect(wf);wf.connect(wg);wg.connect(ambGain);
-    const wl=actx.createOscillator(),wlg=actx.createGain();
-    wl.frequency.value=.06;wlg.gain.value=.22;wl.connect(wlg);wlg.connect(wg.gain);wl.start();
-    const water=actx.createBufferSource();water.buffer=buf;water.loop=true;water.playbackRate.value=1.7;
-    const bf=actx.createBiquadFilter();bf.type='bandpass';bf.frequency.value=1100;bf.Q.value=.9;
-    const bg=actx.createGain();bg.gain.value=.08;
+    // 小溪水声(柔和)
+    const water=actx.createBufferSource();water.buffer=buf;water.loop=true;water.playbackRate.value=1.6;
+    const bf=actx.createBiquadFilter();bf.type='bandpass';bf.frequency.value=900;bf.Q.value=.8;
+    const bg=actx.createGain();bg.gain.value=.16;
     water.connect(bf);bf.connect(bg);bg.connect(ambGain);
     const bl=actx.createOscillator(),blg=actx.createGain();
-    bl.frequency.value=1.3;blg.gain.value=.05;bl.connect(blg);blg.connect(bg.gain);bl.start();
-    wind.start();water.start();
+    bl.frequency.value=1.1;blg.gain.value=.06;bl.connect(blg);blg.connect(bg.gain);bl.start();
+    water.start();
+    // 鸟叫:随机间隔的短促啁啾
+    function chirp(){
+      if(!actx)return;
+      const n=2+Math.floor(Math.random()*3);
+      const base=2100+Math.random()*900;
+      for(let i=0;i<n;i++){
+        const t=actx.currentTime+i*.14+Math.random()*.03;
+        const o=actx.createOscillator(),g=actx.createGain();
+        o.type='sine';
+        o.frequency.setValueAtTime(base+Math.random()*300,t);
+        o.frequency.exponentialRampToValueAtTime(base+800+Math.random()*500,t+.06);
+        o.frequency.exponentialRampToValueAtTime(base+200,t+.11);
+        g.gain.setValueAtTime(.0001,t);
+        g.gain.linearRampToValueAtTime(.5,t+.02);
+        g.gain.exponentialRampToValueAtTime(.001,t+.12);
+        o.connect(g);g.connect(ambGain);o.start(t);o.stop(t+.14);
+      }
+      setTimeout(chirp,2500+Math.random()*5500);
+    }
+    setTimeout(chirp,1200);
   }catch(e){}
 }
 function pop(){
@@ -173,15 +191,33 @@ function pop(){
     g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.12);
     o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.14);}catch(e){}
 }
-let VO3=null,curAudio3=null;
-if(window.VOICE_MANIFEST&&window.VOICE_MANIFEST.lines){VO3={};
-  Object.values(window.VOICE_MANIFEST.lines).forEach(o=>{if(o.lang==='zh')VO3[o.text]=o.file;});}
+let VO3=null,VO3L=null,curAudio3=null,audioUnlocked=false;
+if(window.VOICE_MANIFEST&&window.VOICE_MANIFEST.lines){VO3={};VO3L={};
+  Object.values(window.VOICE_MANIFEST.lines).forEach(o=>{if(o.lang==='zh'){VO3[o.text]=o.file;VO3L[o.text]=o;}});}
+addEventListener('pointerdown',function unlock(){
+  audioUnlocked=true;
+  try{const a=new Audio();a.muted=true;a.play().catch(()=>{});}catch(e){}
+  try{speechSynthesis.resume();}catch(e){}
+  removeEventListener('pointerdown',unlock);
+},{once:true});
 function say3(t){
   window.__lastSaid={t:t,vo:!!(VO3&&VO3[t])};
   if(CFG.voice<=0)return;
-  if(VO3&&VO3[t]){try{
+  if(!audioUnlocked)return; // 手机端首次触摸前浏览器禁止出声,直接丢弃
+  const lang=(()=>{try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}})();
+  const line=VO3L&&VO3L[t];
+  let file=VO3&&VO3[t],trText=null,trLang=null;
+  if(lang!=='zh'&&line&&line.tr&&line.tr[lang]){
+    if(line.tr[lang].file)file=line.tr[lang].file;
+    else if(line.tr[lang].text){trText=line.tr[lang].text;trLang=lang;}
+  }
+  if(trText){try{
+    const u=new SpeechSynthesisUtterance(trText);
+    u.lang=trLang==='de'?'de-DE':'en-US';u.rate=.9;u.volume=CFG.voice;
+    speechSynthesis.cancel();speechSynthesis.speak(u);return;}catch(e){}}
+  if(file){try{
     if(curAudio3)curAudio3.pause();
-    curAudio3=new Audio('assets/voice/'+VO3[t]);
+    curAudio3=new Audio('assets/voice/'+file);
     curAudio3.volume=CFG.voice;
     curAudio3.play().catch(()=>{});
     try{speechSynthesis.cancel();}catch(e){}
@@ -715,7 +751,7 @@ function stationPanel(i){
   return html;
 }
 function dojoPanel(){
-  let html='<b>🟫 大棋盘道场</b><br>随时来和糯糯下一盘吃子棋，把学到的用出来！';
+  let html='<b>🟫 大棋盘道场</b><br>随时来和糯糯下一盘吃子棋，把学到的用出来！<br><span style="font-size:12px;color:#8a7a68">通关规则：过关=完成小屋里的课程；只有进入第2关·点心客厅前，需要在这里赢一局。</span>';
   html+='<br><button onclick="__startPlay()" style="background:#56A95C">⚔️ 就在这里下棋</button>';
   return html;
 }
@@ -785,7 +821,8 @@ window.__startPlay=()=>{
   dojoLabel.visible=false;zoneEl.classList.add('play');
   pg=Array.from({length:GN},()=>Array(GN).fill(0));
   pMesh.clear();playGroup.clear();achGroup.visible=false;
-  player.position.set(0,0,-6.5);player.rotation.y=Math.PI;moving=false;
+  player.position.set(0,0,1.6);player.rotation.y=Math.PI;moving=false;
+  window.__preCamDist=camDist;camDist=15;
   pPanel("<b>⚔️ 吃子棋 · 9路</b><br>点棋盘交叉点落子，谁先吃掉对方一颗棋子谁赢。你执黑先行！");
   say3("来吧！点棋盘的交叉点落子，你执黑先行！");
   step(performance.now()+1);
@@ -794,6 +831,7 @@ window.__resetPlay=()=>{window.__startPlay();};
 window.__exitPlay=()=>{
   playMode=false;playGroup.clear();pMesh.clear();achGroup.visible=true;
   dojoLabel.visible=true;zoneEl.classList.remove('play');
+  if(window.__preCamDist){camDist=window.__preCamDist;window.__preCamDist=0;}
   player.position.set(0,0,2);
   zoneEl.style.display='none';curZone=null;step(performance.now()+1);
 };
@@ -903,6 +941,7 @@ function collide(){
 }
 
 let t0=performance.now(),walkT=0,miniT=0;
+let stuckMs=0,stuckPX=0,stuckPZ=0;
 const camPos=new THREE.Vector3(0,5,30);
 function step(now){
   const dt=Math.min(.05,(now-t0)/1000);t0=now;
@@ -935,6 +974,13 @@ function step(now){
     }
   } else if(!keyMove)player.position.y*=.85;
   if(!playMode)collide();
+  // 卡死检测:想走却走不动 1.2 秒 → 镜头自动拉远,帮兔子重新找方向
+  if(!playMode&&(keyMove||moving)){
+    const moved=Math.hypot(player.position.x-stuckPX,player.position.z-stuckPZ);
+    if(moved<2.2*dt){stuckMs+=dt*1000;}else stuckMs=0;
+    if(stuckMs>1200){camDist=Math.min(15,camDist+6);stuckMs=-3500;}
+  }else stuckMs=0;
+  stuckPX=player.position.x;stuckPZ=player.position.z;
   const hh=2.4+camDist*.30;
   let want,look;
   if(playMode){want=new THREE.Vector3(0,15.5,-4);look=new THREE.Vector3(0,.7,-17);}
