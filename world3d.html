@@ -915,8 +915,12 @@ function ptUp(e){
 }
 renderer.domElement.addEventListener('pointerup',ptUp);
 renderer.domElement.addEventListener('pointercancel',ptUp);
-STATIONS.forEach(st=>COLLIDERS.push({x:st.x,z:st.z,r:3.4}));
-COLLIDERS.push({x:0,z:-64,r:15});
+// 站点建筑:1-4=山洞房子(模型缩放5.4,实心半径≈4.0),5=灯塔(缩放8.5,半径≈4.6)——半径匹配可见模型,兔子不再戳进墙
+STATIONS.forEach((st,i)=>COLLIDERS.push({x:st.x,z:st.z,r:i===4?4.6:4.0}));
+COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
+COLLIDERS.push({x:8,z:10,r:.8});            // 熊猫村民
+COLLIDERS.push({x:-30,z:-18,r:.8});
+COLLIDERS.push({x:26,z:-26,r:.8});
 SNOWSTONES.forEach(([x,z])=>COLLIDERS.push({x,z,r:1.25}));
 [[-38,-74,2.6],[34,-80,3],[46,-60,2],[-30,-42,2.2],[30,-46,2.4],[-16,-44,1.8],[18,-48,1.7]]
   .forEach(([x,z,r])=>COLLIDERS.push({x,z,r}));

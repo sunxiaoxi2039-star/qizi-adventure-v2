@@ -679,7 +679,9 @@ function win(text,vo){
   if(firstClear&&cur.ch&&EPMAP[cur.ch.id]&&cur.ch.levels.every(l=>prog[l.key]))
     bonus="🎬 整章通关！今晚的奖励：看《小喵小汪学围棋》第 "+EPMAP[cur.ch.id]+" 集！";
   sWin();confetti();
-  if(bonus){msg(text+"　"+bonus,false);say(vo||text);setTimeout(()=>{if(soundOn)say(bonus);},3200);}
+  if(bonus){msg(text+"　"+bonus,false);say(vo||text);
+    // 等胜利语音真正播完再播整章奖励,别硬切(逃跑关等长句会被截断)
+    (async()=>{const k=cur.key;await wait(500);await waitSpeech(12000);await wait(250);if(soundOn&&over&&cur&&cur.key===k)say(bonus);})();}
   else{msg(text,false);say(vo||text);}
   winButtons();
 }
