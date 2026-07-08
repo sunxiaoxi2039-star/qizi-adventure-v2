@@ -180,7 +180,7 @@
 
 <script src="levels5k.js?v=2"></script>
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
-<script src="assets/voice/manifest.js?v=6"></script>
+<script src="assets/voice/manifest.js?v=7"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -699,7 +699,7 @@ function doHint(){
   if(cur.t==="noentry"){msg("找找哪个点四面都被白棋包围——下进去一口气都没有的，就是禁入点！");return;}
   if(cur.t==="choice"){msg("先看看自己有没有棋子只剩一口气——记住：先救命，再抢地盘！");return;}
   if(cur.t==="play"){const h=suggest(B);
-    if(h){marks=[{c:h.pt[0],r:h.pt[1],t:"hint"}];draw();msg("下在橙色圈圈！"+h.why);}
+    if(h){marks=[{c:h.pt[0],r:h.pt[1],t:"hint"}];draw();msg("下在橙色圈圈！"+h.why,false);say(h.why);}
     else msg("挨着自己的棋下，往气多的地方走！");return;}
 }
 function findCapture(g,color){
