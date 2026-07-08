@@ -180,7 +180,8 @@
 
 <script src="levels5k.js?v=2"></script>
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
-<script src="assets/voice/manifest.js?v=7"></script>
+<script src="levels_demos.js?v=1" onerror="this.remove()"></script>
+<script src="assets/voice/manifest.js?v=8"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -361,6 +362,7 @@ if(window.QK5){
   if(QK5.chapters)QK5.chapters.forEach(ch=>CH.push(ch));
 }
 if(window.QDAN&&QDAN.chapters){QDAN.chapters.forEach(c=>CH.push(c));}
+if(window.QDEMOS){CH.forEach(c=>{if(QDEMOS[c.id])c.levels=[...QDEMOS[c.id],...c.levels];});}
 const FLAT=[]; CH.forEach(ch=>ch.levels.forEach((lv,i)=>{lv.key="c"+ch.id+"l"+(i+1); lv.ch=ch; FLAT.push(lv);}));
 
 /* ---------- 画板 ---------- */

@@ -75,7 +75,8 @@
 </div>
 <div id="mini" title="点我回到出发点"></div><div id="mnext"></div>
 <script src="levels5k.js?v=2"></script>
-<script src="assets/voice/manifest.js?v=7"></script>
+<script src="levels_demos.js?v=1" onerror="this.remove()"></script>
+<script src="assets/voice/manifest.js?v=8"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -502,6 +503,7 @@ const CHDEF=[[1,5,"气球村"],[2,5,"点心镇"],[3,5,"警报站"],[4,4,"双胞�
 if(window.QK5){
   if(QK5.extend7)CHDEF[6][1]+=QK5.extend7.length;
   if(QK5.chapters)QK5.chapters.forEach(c=>CHDEF.push([c.id,c.levels.length,(c.name.split("·")[0]||"").trim()]));
+  if(window.QDEMOS)CHDEF.forEach(d=>{if(QDEMOS[d[0]])d[1]+=QDEMOS[d[0]].length;});
 }
 let prog={};try{prog=JSON.parse(localStorage.getItem("qz2_prog"))||{};}catch(e){}
 const chKeys=d=>Array.from({length:d[1]},(_,i)=>"c"+d[0]+"l"+(i+1));
