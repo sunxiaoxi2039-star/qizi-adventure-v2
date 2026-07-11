@@ -412,7 +412,8 @@ function show(s){
 function buttons(list){
   const b=$("btns");b.innerHTML="";
   for(const[txt,cls,fn]of list){const x=document.createElement("button");
-    x.className="big "+cls;x.textContent=txt;x.onclick=fn;b.appendChild(x);}
+    // 同一窑美学:按钮文字剥离前置 emoji(按钮文字不进语音,安全)
+    x.className="big "+cls;x.textContent=txt.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/,"");x.onclick=fn;b.appendChild(x);}
 }
 function stdButtons(){
   const a=[["💡 提示","alt",doHint],["🔄 重来","gray",()=>start(cur)]];
@@ -428,20 +429,29 @@ function winButtons(){
   const i=FLAT.indexOf(cur);
   if(cur.t==="play"&&hist.length)a.unshift(["📖 复盘","blue",openReview]);
   if(i<FLAT.length-1)a.push(["➡ 下一关","",()=>start(FLAT[i+1])]);
+  if(rompOffer)a.push(["🫧 出去撒欢！","goldbtn",()=>{
+    location.href="world3d.html?romp=1&back="+encodeURIComponent(cur.key);}]);
   buttons(a);
 }
 
 /* ---------- 开始关卡 ---------- */
 function start(lv){
   if(demoTok)demoTok.dead=true;
+  seqNo++;usedHint=false;rompOffer=false;
   cur=lv;const N=lv.size;
   B=Array.from({length:N},()=>Array(N).fill(0));
   (lv.stones||[]).forEach(([c,r,v])=>B[c][r]=v);
   marks=[];lastMove=null;busy=false;over=false;found=[];wrong=0;dblStep=0;turn=1;hist=[];rev=null;demoDone=false;koPt=null;passCnt=0;capMe=0;capAI=0;
   show("game");layout();
   if(lv.t==="demo"){
-    buttons([["🔁 再看一遍","alt",()=>start(lv)],["✅ 我学会啦","",()=>{if(!prog[cur.key]){saveWin();}confetti();sWin();
-      const i=FLAT.indexOf(cur);start(FLAT[i+1]);}]]);
+    buttons([["🔁 再看一遍","alt",()=>start(lv)],["✅ 我学会啦","",async()=>{
+      const i=FLAT.indexOf(cur),mySeq=seqNo;
+      $("btns").innerHTML="";
+      if(!prog[cur.key]){saveWin();}
+      confetti();sWin();sayId("dm_learn1");
+      await wait(1400);
+      if(seqNo!==mySeq)return;
+      start(FLAT[i+1]);}]]);
     demoTok={dead:false};runDemo(lv.script,demoTok);return;
   }
   stdButtons();
@@ -459,6 +469,16 @@ function start(lv){
 
 /* ---------- 演示模式 ---------- */
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+let seqNo=0,usedHint=false,rompOffer=false;
+function sessWin(){
+  let s;try{s=JSON.parse(localStorage.getItem("qz2_sess"))||{};}catch(e){s={};}
+  if(!s.last||Date.now()-s.last>1800000)s={wins:0};
+  s.wins=(s.wins||0)+1;s.last=Date.now();
+  try{localStorage.setItem("qz2_sess",JSON.stringify(s));}catch(e){}
+  return s.wins;
+}
+function praiseState(){try{return JSON.parse(localStorage.getItem("qz2_praise"))||{recent:[],streak:0};}catch(e){return{recent:[],streak:0};}}
+function savePraise(st){try{localStorage.setItem("qz2_praise",JSON.stringify(st));}catch(e){}}
 async function waitSpeech(cap){
   const t0=performance.now();
   while(performance.now()-t0<(cap||9000)){
@@ -489,25 +509,98 @@ async function runDemo(script,tok){
 
 /* ---------- 胜负反馈 ---------- */
 const EPMAP={1:"1–5",2:"6–10",3:"11–15",4:"16–20",5:"21–25",6:"26–30"};
-function win(text,vo){
+const sStar=()=>tone([[660,.09],[880,.09],[1320,.18]]);
+const PRAISE={
+  persist:["pr_retry1","pr_retry2"],
+  hint:["pr_hint1"],
+  brave:["pr_brave1","pr_boss1"],
+  mixed:["sys_praise1","sys_praise2","sys_praise3","pr_first1","pr_slow1","pr_prog1","pr_calm1"]
+};
+function pickPraise(firstClear){
+  const st=praiseState();
+  if(firstClear&&wrong===0&&!usedHint)st.streak=(st.streak||0)+1;else st.streak=0;
+  let id=null,pool=null;
+  if(st.streak===3)id="pr_streak3";
+  else if(wrong>0)pool=PRAISE.persist;
+  else if(usedHint)pool=PRAISE.hint;
+  else if(firstClear&&(cur.ic==="🏅"||cur.ic==="👑"||cur.t==="play"))pool=PRAISE.brave;
+  else if(firstClear&&Math.random()<.35)pool=PRAISE.mixed;
+  if(!id&&pool){
+    const cand=pool.filter(x=>!(st.recent||[]).includes(x));
+    const use=cand.length?cand:pool;
+    id=use[Math.floor(Math.random()*use.length)];
+  }
+  if(id)st.recent=[...(st.recent||[]),id].slice(-3);
+  savePraise(st);
+  return id;
+}
+function starFly(){
+  try{
+    const c=cv.getBoundingClientRect(),t=$("stars").getBoundingClientRect();
+    const el=document.createElement("div");el.className="starfly";el.textContent="⭐";
+    el.style.left=(c.left+c.width/2-17)+"px";el.style.top=(c.top+c.height/2-17)+"px";
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      el.style.transform="translate("+(t.left+t.width/2-(c.left+c.width/2))+"px,"+(t.top+t.height/2-(c.top+c.height/2))+"px) scale(.45)";
+      el.style.opacity=".85";
+    }));
+    setTimeout(()=>{el.remove();refreshStars();
+      const st=$("stars");st.classList.add("starpulse");setTimeout(()=>st.classList.remove("starpulse"),750);},680);
+  }catch(e){refreshStars();}
+}
+function win(text,vo){winSequence(text,vo);}
+async function winSequence(text,vo){
   over=true;
+  const mySeq=seqNo,myKey=cur.key,t0=performance.now();
+  const dead=()=>seqNo!==mySeq||!over||!cur||cur.key!==myKey;
   const firstClear=!prog[cur.key];
-  if(firstClear)saveWin();else refreshStars();
+  if(firstClear){prog[cur.key]=true;try{localStorage.setItem(LSP,JSON.stringify(prog));}catch(e){}}
   let bonus=null;
   if(firstClear&&cur.ch&&EPMAP[cur.ch.id]&&cur.ch.levels.every(l=>prog[l.key]))
     bonus="🎬 整章通关！今晚的奖励：看《小喵小汪学围棋》第 "+EPMAP[cur.ch.id]+" 集！";
-  sWin();confetti();
-  if(bonus){msg(text+"　"+bonus,false);say(vo||text);
-    // 等胜利语音真正播完再播整章奖励,别硬切(逃跑关等长句会被截断)
-    (async()=>{const k=cur.key;await wait(500);await waitSpeech(12000);await wait(250);if(soundOn&&over&&cur&&cur.key===k)say(bonus);})();}
-  else{msg(text,false);say(vo||text);}
+  const bb=$("btns");bb.innerHTML="";bb.style.opacity="0";
+  sWin();
+  cv.classList.add("winpulse");setTimeout(()=>{try{cv.classList.remove("winpulse");}catch(e){}},950);
+  await wait(450);if(dead())return;
+  confetti();
+  await wait(250);if(dead())return;
+  msg(text,false);
+  const pr=firstClear?pickPraise(firstClear):null;
+  if(pr){sayId(pr);await wait(300);await waitSpeech(4500);if(dead())return;await wait(220);}
+  say(vo||text);
+  await wait(400);await waitSpeech(9000);if(dead())return;
+  await wait(200);if(dead())return;
+  if(firstClear){sStar();starFly();await wait(700);if(dead())return;}
+  else refreshStars();
+  if(bonus){
+    msg(text+"　"+bonus,false);
+    if(soundOn)say(bonus);
+    confetti();
+    await wait(300);await waitSpeech(9000);if(dead())return;
+  }
+  const elapsed=performance.now()-t0;
+  if(elapsed<2600)await wait(2600-elapsed);
+  if(dead())return;
+  const wins=(!pvp&&!freeplay())?sessWin():0;
+  rompOffer=wins>0&&wins%3===0;
   winButtons();
+  bb.style.opacity="";
+  if(rompOffer){await wait(350);if(!dead())sayId("rp_go1");}
+}
+function delayedButtons(ms){
+  const mySeq=seqNo,myKey=cur?cur.key:null;
+  const bb=$("btns");bb.innerHTML="";bb.style.opacity="0";
+  setTimeout(()=>{
+    if(seqNo!==mySeq||!cur||cur.key!==myKey)return;
+    winButtons();bb.style.opacity="";
+  },ms);
 }
 function fail(text){sNo();msg(text);cv.classList.add("shake");setTimeout(()=>cv.classList.remove("shake"),350);}
 
 /* ---------- 提示：位置 + 理由 ---------- */
 function doHint(){
   if(!cur||over)return;
+  usedHint=true;
   if(cur.t==="lib"){msg(cur.hintText||"气就在棋子的上、下、左、右的空路口！都点一遍！");return;}
   if(cur.t==="pick"){msg("数一数每块棋的气，气最少的那块最危险！");return;}
   if(cur.t==="point"||cur.t==="connect"){const p=cur.t==="point"?(cur.targets?cur.targets[0]:cur.target):cur.best;
@@ -840,9 +933,9 @@ function aiTurn(){
     hist.push({c:mv[0],r:mv[1],col:2,board:clone(B),note:n2});
     if(r2.captured.length>0){
       capAI+=r2.captured.length;sCap();
-      if(goal==="cap1"){over=true;sNo();winButtons();
+      if(goal==="cap1"){over=true;sNo();delayedButtons(800);
         msg("啊呀，被吃掉了。点『复盘』，糯糯带你找原因——找到了下盘就能赢！");return;}
-      if(goal==="capN"&&capAI>=P.n){over=true;sNo();winButtons();
+      if(goal==="capN"&&capAI>=P.n){over=true;sNo();delayedButtons(800);
         msg("啊呀，糯糯先吃满 "+P.n+" 颗了。点『复盘』找原因——下盘赢回来！",false);
         say("啊呀，糯糯先吃满了。点复盘找原因，下盘赢回来！");return;}
     }
@@ -889,7 +982,7 @@ function scoreGame(){
     return;
   }
   if(sb>w){win(txt+"　你围的地盘更大，你赢啦！🏆","数完啦！你围的地盘更大，你赢啦！");return;}
-  sNo();winButtons();
+  sNo();delayedButtons(800);
   msg(txt+(sb<w?"　这次糯糯的地盘大一点。复盘想想：哪里还能围得更大？":"　平局！再来一盘分出胜负！"),false);
   say(sb<w?"这次糯糯的地盘大一点。复盘想想，哪里还能围得更大？":"平局！再来一盘分出胜负！");
 }

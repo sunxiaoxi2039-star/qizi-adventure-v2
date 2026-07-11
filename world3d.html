@@ -18,6 +18,10 @@
   #zone.play{bottom:auto;top:60px;padding:8px 16px;font-size:14px;}
   #zone button{margin-top:8px;border:none;background:#5B8DD9;color:#fff;font-size:15px;font-weight:700;
     padding:8px 18px;border-radius:12px;cursor:pointer;}
+  .popPetal{position:fixed;width:12px;height:9px;border-radius:60% 40% 55% 45%;
+    background:radial-gradient(ellipse at 35% 35%,#FFE9C9 0%,#F2C76E 60%,#D9A94E 100%);
+    pointer-events:none;z-index:80;animation:ppf .85s ease-out forwards;}
+  @keyframes ppf{to{transform:translate(var(--dx),var(--dy)) rotate(240deg);opacity:0;}}
   #back{position:fixed;left:14px;top:14px;border:none;background:rgba(255,255,255,.82);color:#4a5a6a;
     font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08);}
   #hud{position:fixed;right:14px;top:14px;background:rgba(255,255,255,.82);color:#4a5a6a;font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
@@ -76,12 +80,13 @@
 <div id="mini" title="点我回到出发点"></div><div id="mnext"></div>
 <script src="levels5k.js?v=2"></script>
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
-<script src="assets/voice/manifest.js?v=9"></script>
+<script src="assets/voice/manifest.js?v=11"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {clone as skClone} from 'three/addons/utils/SkeletonUtils.js';
 
 const app=document.getElementById('app');
 const renderer=new THREE.WebGLRenderer({antialias:true});
@@ -119,8 +124,16 @@ const GREEN=new THREE.MeshStandardMaterial({color:0xA8CC9A,roughness:.85});
 const WOODSIDE=new THREE.MeshStandardMaterial({color:0xB98B43,roughness:.8});
 const PATHM=new THREE.MeshStandardMaterial({color:0xF6EEDD,roughness:.9});
 
+const groundTex=(()=>{
+  const c=document.createElement('canvas');c.width=c.height=512;
+  const x=c.getContext('2d');
+  const g=x.createRadialGradient(256,256,30,256,256,256);
+  g.addColorStop(0,'#FDFBF6');g.addColorStop(.55,'#F8F3E8');g.addColorStop(1,'#F1E6D0');
+  x.fillStyle=g;x.fillRect(0,0,512,512);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+})();
 const ground=new THREE.Mesh(new THREE.CircleGeometry(170,64),
-  new THREE.MeshStandardMaterial({color:0xF8F6F1,roughness:.96}));
+  new THREE.MeshStandardMaterial({map:groundTex,roughness:.96}));
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 function undulate(x,z,r,h,mat){
   const m=new THREE.Mesh(new THREE.SphereGeometry(r,28,18),mat||WHITE);
@@ -128,6 +141,11 @@ function undulate(x,z,r,h,mat){
 }
 undulate(-80,-95,50,7);undulate(78,-98,55,9);undulate(-100,-30,40,5);undulate(100,-16,45,6);
 undulate(-45,-125,60,14,WHITE2);undulate(48,-128,66,16,WHITE2);
+for(let i=0;i<14;i++){
+  const a=(i/14)*Math.PI*2+.22;
+  const r=96+((i*37)%3)*9;
+  undulate(Math.sin(a)*r,Math.cos(a)*r,26+((i*53)%3)*10,9+((i*29)%3)*5,WHITE2);
+}
 
 let CFG={voice:1,ambient:.18,ui:.7};
 try{CFG={...CFG,...JSON.parse(localStorage.getItem('qz3_vol')||'{}')};}catch(e){}
@@ -341,7 +359,10 @@ function fallbackBunny(H){
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
   return g;
 }
-const MODEL_URL='assets/models/bunny_blank.glb'+(location.search.includes('noglb')?'.x':'');
+const MODEL_URL='assets/models/anim/bunny_idle.glb'+(location.search.includes('noglb')?'.x':'');
+const MODEL_FALLBACK='assets/models/bunny_blank.glb';
+const CLIPS={}; // idle/walk/jump AnimationClip
+let heroEntry=null;
 function bunnyGLB(height){
   const wrap=new THREE.Group();
   const inner=new THREE.Group();inner.rotation.y=-Math.PI/2;wrap.add(inner);
@@ -350,23 +371,81 @@ function bunnyGLB(height){
   animBunnies.push(entry);
   function fill(){
     inner.remove(fb);
-    const g=glbProto.clone(true);
+    const g=CLIPS.idle?skClone(glbProto):glbProto.clone(true);
     const h=glbBox.max.y-glbBox.min.y,cx=(glbBox.min.x+glbBox.max.x)/2,cz=(glbBox.min.z+glbBox.max.z)/2;
     const sc=height/h;
     g.scale.setScalar(sc);g.position.set(-cx*sc,-glbBox.min.y*sc,-cz*sc);
     inner.add(g);
-    const H=height;entry.H=H;
-    // 贴纸脸已弃用(用户反馈:眼睛漂浮感;改用模型原生画脸,不眨眼)
+    const H=height;entry.H=H;entry.animRoot=g;
+    attachActions(entry);
   }
   if(glbProto)fill();else pendingSkins.push(fill);
   return wrap;
 }
+function attachActions(entry){
+  if(!CLIPS.idle||!entry.animRoot||entry.mixer)return;
+  try{
+    entry.mixer=new THREE.AnimationMixer(entry.animRoot);
+    entry.act={};entry.mode='idle';
+    for(const k of Object.keys(CLIPS)){
+      const a=entry.mixer.clipAction(CLIPS[k]);
+      if(k==='jump'){a.setLoop(THREE.LoopOnce);a.clampWhenFinished=true;}
+      entry.act[k]=a;
+    }
+    entry.act.idle.play();
+    entry.act.idle.time=Math.random()*CLIPS.idle.duration;
+    entry.mixer.addEventListener('finished',e=>{
+      if(entry.act.jump&&e.action===entry.act.jump){
+        entry.act.jump.fadeOut(.2);
+        const back=entry.act[entry.mode==='jump'?'idle':entry.mode]||entry.act.idle;
+        entry.mode=entry.mode==='jump'?'idle':entry.mode;
+        back.reset().fadeIn(.2).play();
+      }
+    });
+  }catch(e){}
+}
+function setLoco(entry,mode){
+  if(!entry||!entry.act||!entry.act[mode]||entry.mode===mode)return;
+  if(entry.mode==='jump'&&mode!=='jump'&&entry.act.jump.isRunning())return;
+  const from=entry.act[entry.mode],to=entry.act[mode];
+  entry.mode=mode;
+  to.reset().fadeIn(.22).play();
+  if(from&&from!==to)from.fadeOut(.22);
+}
+window.__bunnyJump=()=>{
+  const e=heroEntry||animBunnies[0];
+  if(!e||!e.act||!e.act.jump)return;
+  const from=e.act[e.mode];
+  e.mode='jump';
+  e.act.jump.reset().fadeIn(.12).play();
+  if(from&&from!==e.act.jump)from.fadeOut(.12);
+};
 function adoptGLB(glb){
   try{
     furify(glb.scene);
     glbProto=glb.scene;
     glbBox=new THREE.Box3().setFromObject(glbProto);
+    if(glb.animations&&glb.animations.length)CLIPS.idle=glb.animations[0];
     pendingSkins.forEach(f=>f());pendingSkins=[];
+    heroEntry=animBunnies[0]||null;
+    if(CLIPS.idle){
+      ['walk','jump'].forEach(name=>{
+        new GLTFLoader().load('assets/models/anim/bunny_'+name+'.glb',g2=>{
+          try{
+            if(g2.animations&&g2.animations.length){
+              CLIPS[name]=g2.animations[0];
+              animBunnies.forEach(en=>{
+                if(en.mixer&&!en.act[name]){
+                  const a=en.mixer.clipAction(CLIPS[name]);
+                  if(name==='jump'){a.setLoop(THREE.LoopOnce);a.clampWhenFinished=true;}
+                  en.act[name]=a;
+                }
+              });
+            }
+          }catch(e){}
+        },undefined,()=>{});
+      });
+    }
   }catch(e){}
   hideLoader();
 }
@@ -380,7 +459,8 @@ function tryB64(){
   }catch(e){hideLoader();}
 }
 if(location.protocol==='file:')tryB64();
-else new GLTFLoader().load(MODEL_URL,adoptGLB,undefined,tryB64);
+else new GLTFLoader().load(MODEL_URL,adoptGLB,undefined,
+  ()=>new GLTFLoader().load(MODEL_FALLBACK,adoptGLB,undefined,tryB64));
 const PROPS={},PROP_ROT={yurt:-Math.PI/2,tree:0,cloud:0,stone_black:0,stone_white:0,mushroom:-Math.PI/2,tower:-Math.PI/2,cave:-Math.PI/2,bush:0,lantern:0,bridge:0,panda:-Math.PI/2};
 const SWAP={stations:[],deco:[],snow:[],trees:[],cloudsDone:false,mushDone:false};
 function propInstance(name,height){
@@ -837,6 +917,68 @@ window.__exitPlay=()=>{
   player.position.set(0,0,2);
   zoneEl.style.display='none';curZone=null;step(performance.now()+1);
 };
+/* ===== 撒欢时刻(romp):赢3关跳出棋盘的奖励小游戏 ===== */
+const ROMP={on:new URLSearchParams(location.search).get('romp')==='1',
+  back:new URLSearchParams(location.search).get('back')||'',
+  list:[],popped:0,total:5,done:false};
+function sayId3(id){
+  try{
+    if(CFG.voice<=0||!audioUnlocked)return;
+    const line=window.VOICE_MANIFEST&&VOICE_MANIFEST.lines&&VOICE_MANIFEST.lines[id];
+    if(!line)return;
+    const lang=(function(){try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}})();
+    let f=line.file;
+    if(lang!=='zh'&&line.tr&&line.tr[lang]&&line.tr[lang].file)f=line.tr[lang].file;
+    if(!f)return;
+    if(curAudio3)curAudio3.pause();
+    curAudio3=new Audio('assets/voice/'+f);curAudio3.volume=CFG.voice;curAudio3.play().catch(()=>{});
+  }catch(e){}
+}
+const rompGroup=new THREE.Group();scene.add(rompGroup);
+function startRomp(){
+  [[4,6],[-5,4],[7,-2],[-7,-4],[2,-8]].forEach(([x,z],i)=>{
+    const m=new THREE.Mesh(new THREE.SphereGeometry(1.1,20,16),
+      new THREE.MeshPhysicalMaterial({color:0xF2C76E,transparent:true,opacity:.55,roughness:.15,
+        emissive:new THREE.Color(0xC9952E),emissiveIntensity:.3}));
+    m.position.set(x,1.6,z);m.userData.ph=i*1.3;m.userData.alive=true;
+    rompGroup.add(m);ROMP.list.push(m);
+  });
+  $('hint').textContent='🫧 去戳金泡泡！还有 5 个';
+  setTimeout(()=>sayId3('rp_go1'),900);
+}
+function burstAt(p){
+  try{
+    const v=p.clone().project(cam);
+    const x=(v.x*.5+.5)*innerWidth,y=(-v.y*.5+.5)*innerHeight;
+    for(let i=0;i<8;i++){
+      const el=document.createElement('div');el.className='popPetal';
+      el.style.left=x+'px';el.style.top=y+'px';
+      const a=Math.random()*6.28,d=40+Math.random()*70;
+      el.style.setProperty('--dx',Math.cos(a)*d+'px');
+      el.style.setProperty('--dy',(Math.sin(a)*d-30)+'px');
+      document.body.appendChild(el);setTimeout(()=>el.remove(),900);
+    }
+  }catch(e){}
+}
+function rompPop(m){
+  if(!m.userData.alive)return;
+  m.userData.alive=false;rompGroup.remove(m);
+  ROMP.popped++;pop();burstAt(m.position);
+  window.__bunnyJump&&__bunnyJump();
+  if(ROMP.popped>=ROMP.total){
+    ROMP.done=true;
+    $('hint').textContent='🌸 全部戳完！玩得真开心！';
+    setTimeout(()=>sayId3('rp_done1'),350);
+    const chm=ROMP.back.match(/^c(\d+)l/);
+    const href='index.html'+(chm?('?ch='+chm[1]):'');
+    zoneEl.innerHTML='<b>🫧 撒欢结束！</b><br>玩得真开心，回去继续冒险吧！<br><button onclick="location.href=\''+href+'\'" style="background:#F2C76E;color:#7a5a16">回去继续冒险</button>';
+    zoneEl.style.display='block';
+  }else{
+    sayId3('rp_pop1');
+    $('hint').textContent='🫧 去戳金泡泡！还有 '+(ROMP.total-ROMP.popped)+' 个';
+  }
+}
+if(ROMP.on)startRomp();
 function pClickGrid(i,j){
   if(!playMode||pOver||pBusy)return;
   if(i<0||j<0||i>=GN||j>=GN)return;
@@ -846,7 +988,7 @@ function pClickGrid(i,j){
   if(res.cap.length>0){pOver=true;
     const unlocked=dojoCredit();
     pPanel("🎉 <b>你吃掉了糯糯的棋子，赢啦！</b><br>"+(unlocked?"🔓 点心客厅开门啦！去下一站吧！":"大棋盘记住了你的胜利！"));
-    say3(unlocked?"你赢啦！点心客厅开门啦，去下一站吧！":"你赢啦！大棋盘记住了你的胜利！");window.__face&&__face('happy',3000);step(performance.now()+1);return;}
+    say3(unlocked?"你赢啦！点心客厅开门啦，去下一站吧！":"你赢啦！大棋盘记住了你的胜利！");window.__face&&__face('happy',3000);window.__bunnyJump&&__bunnyJump();step(performance.now()+1);return;}
   pBusy=true;pPanel("糯糯想一想…");step(performance.now()+1);
   setTimeout(()=>{
     const m=pAI(pg);pBusy=false;
@@ -909,6 +1051,11 @@ function ptUp(e){
     }
     return;
   }
+  if(ROMP.on&&!ROMP.done){
+    const alive=ROMP.list.filter(m=>m.userData.alive);
+    const bh=ray.intersectObjects(alive)[0];
+    if(bh){rompPop(bh.object);return;}
+  }
   const hit=ray.intersectObject(ground)[0];
   if(hit){target.copy(hit.point);target.y=0;
     const d=target.length();
@@ -964,7 +1111,7 @@ function step(now){
       const dx=-Math.sin(camYaw)*fw,dz=-Math.cos(camYaw)*fw;
       player.position.x+=dx*6*dt;player.position.z+=dz*6*dt;
       player.rotation.y=THREE.MathUtils.lerp(player.rotation.y,Math.atan2(dx,dz),.2);
-      walkT+=dt*11;player.position.y=Math.abs(Math.sin(walkT))*.14;
+      walkT+=dt*11;if(!heroEntry||!heroEntry.mixer)player.position.y=Math.abs(Math.sin(walkT))*.14;
     }
   }
   if(moving&&!keyMove){
@@ -976,7 +1123,7 @@ function step(now){
       player.position.addScaledVector(dir,Math.min(d,6.2*dt));
       player.rotation.y=THREE.MathUtils.lerp(player.rotation.y,Math.atan2(dir.x,dir.z),.15);
       walkT+=dt*11;
-      player.position.y=Math.abs(Math.sin(walkT))*.14;
+      if(!heroEntry||!heroEntry.mixer)player.position.y=Math.abs(Math.sin(walkT))*.14;
     }
   } else if(!keyMove)player.position.y*=.85;
   if(!playMode)collide();
@@ -1008,7 +1155,18 @@ function step(now){
   for(const g of swayers)g.rotation.z=Math.sin(tS*.9+g.userData.ph)*.06;
   if(goldRing){const p=1+Math.sin(tS*2.4)*.05;goldRing.scale.set(p,p,1);}
   statue.rotation.y=Math.sin(now*.0001)*.05;
+  const heroMoving=(typeof keyMove!=='undefined'&&keyMove)||moving;
+  if(heroEntry&&heroEntry.act)setLoco(heroEntry,heroMoving?'walk':'idle');
+  if(ROMP.on&&!ROMP.done){
+    for(const m of ROMP.list){
+      if(!m.userData.alive)continue;
+      m.position.y=1.6+Math.sin(tS*1.5+m.userData.ph)*.28;
+      m.rotation.y+=dt*.5;
+      if(Math.hypot(player.position.x-m.position.x,player.position.z-m.position.z)<1.6)rompPop(m);
+    }
+  }
   for(const ab of animBunnies){
+    if(ab.mixer){ab.mixer.update(dt);continue;}
     ab.inner.scale.y=1+Math.sin(tS*1.8+ab.ph)*.013;
     ab.inner.rotation.z=Math.sin(tS*.6+ab.ph)*.018;
     if(FMAT.ready&&ab.eyes){
@@ -1021,7 +1179,7 @@ function step(now){
     }
   }
   miniT+=dt;if(miniT>.15){miniT=0;updMini();}
-  if(!playMode){
+  if(!playMode&&!(ROMP.on&&ROMP.done)){
     let key=null,html=null;
     for(let i=0;i<5;i++){
       const st=STATIONS[i];
