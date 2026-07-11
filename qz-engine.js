@@ -330,6 +330,7 @@ function mapToast(t){
   clearTimeout(mapToast._t);mapToast._t=setTimeout(()=>d.classList.remove("on"),2200);
 }
 function buildMap(){
+  if(window.QZMAP){try{QZMAP.build();return;}catch(err){console.warn('QZMAP fallback',err);}}
   const m=$("map");m.innerHTML="";
   const fp=freeplay();
   /* 当前章 = 第一个未完成的章（顺序解锁下即"第一个未完成且已解锁"） */
@@ -399,6 +400,12 @@ function buildMap(){
   m.appendChild(note);
 }
 function show(s){
+  /* 合并态:回"世界"=收起课程浮层回 3D(2D 广场/内部不再出现) */
+  if(window.QZ_EMBED&&(s==="world"||s==="inside")){
+    stopWorld();
+    if(window.QZ_HOST)QZ_HOST.hide();
+    return;
+  }
   ["world","inside","map","game"].forEach(id=>$(id).classList.toggle("on",s===id));
   $("backBtn").style.visibility=s==="game"?"visible":"hidden";
   $("worldBtn").style.display=(s==="map")?"inline-block":"none";
@@ -430,7 +437,8 @@ function winButtons(){
   if(cur.t==="play"&&hist.length)a.unshift(["📖 复盘","blue",openReview]);
   if(i<FLAT.length-1)a.push(["➡ 下一关","",()=>start(FLAT[i+1])]);
   if(rompOffer)a.push(["🫧 出去撒欢！","goldbtn",()=>{
-    location.href="world3d.html?romp=1&back="+encodeURIComponent(cur.key);}]);
+    if(window.QZ_EMBED&&window.QZ_HOST&&QZ_HOST.romp)QZ_HOST.romp(cur.key);
+    else location.href="world3d.html?romp=1&back="+encodeURIComponent(cur.key);}]);
   buttons(a);
 }
 
@@ -1240,9 +1248,28 @@ $("ttl").onclick=()=>{
     localStorage.clear();location.reload();
   }
 };
-buildMap();refreshStars();show("world");
-const chJump=new URLSearchParams(location.search).get("ch");
-if(chJump){
-  const ci=Math.min(Math.max((+chJump||1)-1,0),CH.length-1);
-  mapSel=ci;show("map");
+buildMap();refreshStars();
+if(window.QZ_EMBED){
+  /* 合并态:不自启,由 3D 世界经 window.QZ 召唤浮层 */
+  window.QZ={
+    openChapter(n){
+      const ci=Math.min(Math.max((+n||1)-1,0),CH.length-1);
+      mapSel=ci;
+      if(window.QZ_HOST)QZ_HOST.show();
+      show("map");
+    },
+    openLevel(k){
+      const lv=FLAT.find(l=>l.key===k);
+      if(window.QZ_HOST)QZ_HOST.show();
+      if(lv)start(lv);else show("map");
+    },
+    close(){show("world");}
+  };
+}else{
+  show("world");
+  const chJump=new URLSearchParams(location.search).get("ch");
+  if(chJump){
+    const ci=Math.min(Math.max((+chJump||1)-1,0),CH.length-1);
+    mapSel=ci;show("map");
+  }
 }

@@ -134,6 +134,46 @@
     75%  { transform:translate(24px,78vh) rotate(400deg); }
     100% { transform:translate(-14px,106vh) rotate(520deg); opacity:.25; }
   }
+  /* 云上棋路(素材版地图) */
+  .qzSeam { position:absolute; left:0; right:0; top:-34px; height:68px; pointer-events:none; z-index:2;
+    background:
+      radial-gradient(52% 100% at 12% 50%, rgba(252,250,245,.95) 0%, rgba(252,250,245,0) 70%),
+      radial-gradient(46% 100% at 34% 44%, rgba(250,246,238,.9) 0%, rgba(250,246,238,0) 70%),
+      radial-gradient(55% 100% at 57% 55%, rgba(252,250,245,.92) 0%, rgba(252,250,245,0) 70%),
+      radial-gradient(48% 100% at 80% 46%, rgba(250,247,240,.9) 0%, rgba(250,247,240,0) 70%),
+      radial-gradient(40% 100% at 96% 52%, rgba(252,250,245,.88) 0%, rgba(252,250,245,0) 70%);
+    filter:blur(2px); }
+  #map { padding:0; }
+  #qzScroll { width:100%; }
+  .qzSeg { position:relative; width:100%; }
+  .qzSeg .qzBg { display:block; width:100%; height:auto; }
+  .qzLm { position:absolute; width:15%; transform:translate(-50%,-50%); pointer-events:none;
+    filter:drop-shadow(0 4px 6px rgba(120,80,20,.15)); }
+  .qzNode { position:absolute; width:13%; transform:translate(-50%,-50%); background:none; border:none;
+    padding:0; cursor:pointer; }
+  .qzNode img { width:100%; display:block; }
+  .qzNode:active { transform:translate(-50%,-50%) scale(.93); }
+  .qzNode.cur { width:16%; z-index:3; }
+  .qzPin { position:absolute; left:50%; top:-72%; width:64%; transform:translateX(-50%);
+    animation:pinbob2 1.6s ease-in-out infinite; }
+  #qzCard { position:relative; width:100%; margin:-4px 0 12px; }
+  .qzCardBg { width:100%; display:block; }
+  .qzCardIn { position:absolute; inset:9% 8% 10% 8%; display:flex; flex-direction:column; align-items:center; }
+  .qzPlank { position:relative; width:72%; margin-top:-2%; }
+  .qzPlank img { width:100%; display:block; }
+  .qzPlank span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:clamp(13px,2.6vw,19px); font-weight:700; color:#6b4a1d; letter-spacing:1px; }
+  .qzRank { display:flex; align-items:center; gap:5px; font-size:clamp(11px,2.2vw,14px);
+    color:#a9772a; font-weight:700; margin:2% 0; }
+  .qzStarS { width:18px; }
+  .qzLvs { display:flex; gap:3%; flex-wrap:wrap; justify-content:center; width:96%; }
+  .qzLv { position:relative; width:15%; min-width:52px; background:none; border:none; padding:0; cursor:pointer; }
+  .qzLv img:first-child { width:100%; display:block; }
+  .qzLv.lock { filter:grayscale(.9) opacity(.55); }
+  .qzLv:active { transform:scale(.93); }
+  .qzLvStar { position:absolute; right:-6%; top:-8%; width:38% !important; }
+  .qzLv span { display:block; font-size:clamp(9px,1.8vw,12px); color:#7a5a2b; font-weight:700;
+    margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .starfly { position:fixed; font-size:34px; z-index:99; pointer-events:none; opacity:1;
     transition:transform .65s cubic-bezier(.45,.05,.55,.95), opacity .65s; }
   #stars.starpulse { animation:starp .7s ease-in-out; }
@@ -216,5 +256,7 @@
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=11"></script>
 <script src="qz-engine.js?v=1"></script>
+<script src="map_anchors.js?v=2" onerror="this.remove()"></script>
+<script src="qz-map.js?v=3" onerror="this.remove()"></script>
 </body>
 </html>

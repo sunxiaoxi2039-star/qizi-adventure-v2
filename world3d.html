@@ -68,7 +68,7 @@
   box-shadow:0 2px 10px rgba(0,0,0,.12);z-index:60;">⚠️ 当前是简化画面 — 请关掉本页，改为双击文件夹里的「启动.command」获得完整 3D 世界</div>
 <script>if(location.protocol==='file:')document.addEventListener('DOMContentLoaded',()=>{document.getElementById('fileWarn').style.display='block';});</script>
 <div id="zone"></div>
-<button id="back" onclick="location.href='index.html'">⬅ 课程版</button>
+<button id="back" onclick="window.__openCourse?__openCourse():location.href='index.html'">📖 课程</button>
 <div id="hud"></div>
 <button id="volBtn">🔊</button>
 <div id="vol">
@@ -78,9 +78,273 @@
   <label>🌍 语言 <select id="vLang"><option value="zh">中文</option><option value="en">English</option><option value="de">Deutsch</option></select></label>
 </div>
 <div id="mini" title="点我回到出发点"></div><div id="mnext"></div>
+<!--QZ_SKIN-->
+<style>
+
+  #qzApp, #qzApp *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  :root{ --porc:#FBF9F4; --cream:#FFF7E8; --wood:#D9A86C; --wood-d:#C08F55;
+    --sage:#77B77A; --sage-d:#5E9E62; --gold:#F2C76E; --gold-d:#D9A94E;
+    --pink:#F5AFC1; --sky:#9DCAE8; --ink:#2D2B28; --line:#EADFC8; }
+  #qzApp{
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(90% 60% at 20% -10%, #FFFEFB 0%, rgba(255,254,251,0) 60%),
+      radial-gradient(80% 50% at 85% 0%, #FDF6E6 0%, rgba(253,246,230,0) 55%),
+      linear-gradient(180deg, #FDF9F0 0%, #F8EFDD 100%);
+    background-attachment:fixed;
+    color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; user-select:none;
+  }
+  #qzApp header { width:100%; max-width:540px; display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+  #qzApp header .ttl { font-size:clamp(14px,3.4vw,21px); font-weight:700; color:#B5651D; white-space:nowrap; }
+  .pill { border:1.5px solid var(--line); background:var(--porc); color:#8a6a3a;
+    font-size:16px; padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:700; white-space:nowrap;
+    box-shadow:0 2px 0 #EFE4CC, 0 4px 10px rgba(120,80,20,.08); }
+  .pill#stars { border-color:var(--gold); color:#a9772a; }
+  @media (max-width:480px){
+    #qzApp header{padding:8px 8px;gap:4px;}
+    .pill{font-size:13px;padding:6px 8px;}
+  }
+  .pill:active { transform:scale(.95); }
+  #qzApp main { width:100%; max-width:540px; flex:1; display:flex; flex-direction:column; align-items:center; padding:0 12px 24px; }
+  .screen { width:100%; display:none; flex-direction:column; align-items:center; }
+  .screen.on { display:flex; }
+  #pathbar { width:100%; display:flex; align-items:center; gap:6px; padding:10px 14px; background:var(--porc);
+    border:1.5px solid var(--line); border-radius:999px; margin:6px 0 10px; overflow-x:auto;
+    box-shadow:0 2px 0 #EFE4CC; }
+  .pdot { min-width:12px; height:12px; border-radius:50%; background:#EDE5D4; cursor:pointer; border:1px solid #E0D5BE; }
+  .pdot.done { background:var(--sage); border-color:var(--sage-d); }
+  .pdot.cur { background:var(--gold); border-color:var(--gold-d); box-shadow:0 0 0 4px rgba(242,199,110,.3); }
+  .pline { flex:1; height:3px; min-width:8px; background:#EFEAE0; border-radius:2px; }
+  .pline.done { background:#BFE3C8; }
+  #pathlabel { font-size:13px; color:#a98a52; white-space:nowrap; font-weight:700; margin-left:4px; }
+  #rankbar { width:100%; background:#fff; border-radius:14px; padding:9px 12px 7px; margin:6px 0 4px; }
+  .rkline { display:flex; align-items:center; gap:4px; }
+  .rk { font-size:11px; font-weight:700; color:#B5651D; white-space:nowrap; }
+  .rk.dim { color:#c2b89f; }
+  .rl { flex:1; height:4px; border-radius:2px; background:#EFEAE0; position:relative; overflow:hidden; min-width:10px; }
+  .rl i { position:absolute; left:0; top:0; bottom:0; background:#7CC08F; border-radius:2px; }
+  .rl.dash { flex:.7; background:repeating-linear-gradient(90deg,#ddd 0 5px,transparent 5px 9px); }
+  .rkfuture { font-size:10px; color:#c2b89f; white-space:nowrap; margin-left:2px; }
+  #chips { width:100%; display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 6px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; border:2px solid #eee; background:#fff;
+    border-radius:999px; padding:4px 10px; font-size:13px; font-weight:700; color:#7a4a12;
+    cursor:pointer; font-family:inherit; }
+  .chip:active { transform:scale(.95); }
+  .chip.lock { background:#F4EFE6; color:#b0a48d; }
+  .chip.done { background:#F1F8EE; }
+  .chip.cur { box-shadow:0 0 0 3px rgba(245,185,66,.35); }
+  .rankb { font-size:10px; font-weight:700; background:#FFF1C9; color:#a9772a; border-radius:999px;
+    padding:1px 6px; white-space:nowrap; }
+  #rankNote { width:100%; text-align:center; font-size:11px; color:#b3a184; margin:8px 0 2px; line-height:1.6; }
+  .chap { width:100%; background:#fff; border-radius:22px; padding:14px 16px; margin:8px 0; border:3px solid #eee; }
+  .chap.cur { position:relative; margin-top:18px; box-shadow:0 6px 16px rgba(120,80,20,.16); }
+  .chap.cur .pin { position:absolute; top:-14px; left:-5px; font-size:32px; z-index:2;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.28)); animation:pinbob 1.6s ease-in-out infinite; }
+  @keyframes pinbob { 50% { transform:translateY(-5px); } }
+  #mapToast { position:fixed; left:50%; bottom:64px; transform:translateX(-50%); max-width:86vw;
+    background:rgba(74,51,24,.92); color:#fff; padding:9px 16px; border-radius:999px; font-size:14px;
+    z-index:60; opacity:0; pointer-events:none; transition:opacity .3s; white-space:nowrap; }
+  #mapToast.on { opacity:1; }
+  .chap h2 { font-size:19px; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .chap h2 .cnt { margin-left:auto; font-size:15px; color:#b08a4f; }
+  .nodes { display:flex; gap:10px; flex-wrap:wrap; }
+  .node {
+    width:74px; height:74px; border-radius:50%; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; cursor:pointer; font-size:12px; font-weight:700;
+    color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.15);
+  }
+  .node .ic { font-size:24px; }
+  .node:active { transform:scale(.94); }
+  .node.lock { background:#d8cdbb !important; color:#a99; box-shadow:none; }
+  .node.done::after { content:"⭐"; font-size:13px; margin-top:-2px; }
+  #bubble {
+    width:100%; background:var(--porc); border:1.5px solid var(--line); border-radius:22px;
+    padding:11px 14px; font-size:18px; line-height:1.55; margin:4px 0 12px;
+    display:flex; gap:12px; align-items:center; min-height:64px;
+    box-shadow:inset 0 0 0 4px var(--cream), 0 3px 0 #EFE4CC, 0 8px 18px rgba(120,80,20,.08);
+  }
+  #bubble .panda { font-size:26px; flex:none; width:46px; height:46px; display:flex;
+    align-items:center; justify-content:center; background:#fff; border:2px solid var(--wood);
+    border-radius:50%; box-shadow:0 2px 0 #E6D2AE; }
+  #qzApp canvas { display:block; border:9px solid var(--wood); border-radius:20px; cursor:pointer;
+    box-shadow:0 3px 0 var(--wood-d), 0 14px 28px rgba(120,80,20,.18), inset 0 0 0 1px rgba(255,255,255,.35);
+    background:#E8C88F; }
+  #game { background:var(--porc); border:1.5px solid var(--line); border-radius:26px;
+    padding:16px 12px 20px; margin-top:6px;
+    box-shadow:inset 0 0 0 5px var(--cream), 0 4px 0 #EFE4CC, 0 16px 34px rgba(120,80,20,.10); }
+  .btnrow { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; justify-content:center; }
+  .big { border:2px solid rgba(255,255,255,.55); border-radius:999px; font-size:17px; font-weight:700;
+    padding:11px 24px; cursor:pointer; color:#fff; background:var(--sage); letter-spacing:2px;
+    box-shadow:0 3px 0 var(--sage-d), 0 8px 16px rgba(94,158,98,.25); }
+  .big.alt, .big.gray, .big.blue { background:var(--porc); color:#8a6a3a;
+    border:1.5px solid var(--line);
+    box-shadow:0 3px 0 #EFE4CC, 0 6px 12px rgba(120,80,20,.08); letter-spacing:1px; }
+  .big.alt { border-color:var(--gold); color:#a9772a; }
+  .big.goldbtn { background:var(--gold); color:#7a5a16; border:2px solid rgba(255,255,255,.6);
+    box-shadow:0 3px 0 var(--gold-d), 0 8px 16px rgba(217,169,78,.3); }
+  .big:active { transform:scale(.95); }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  #modal.on { display:flex; }
+  #modal .box { background:var(--porc); border:1.5px solid var(--line); border-radius:24px; max-width:460px; width:100%; max-height:84vh; overflow:auto; padding:20px; font-size:15px; line-height:1.7;
+    box-shadow:inset 0 0 0 5px var(--cream), 0 18px 40px rgba(60,40,10,.25); }
+  #modal h3 { color:#B5651D; margin:10px 0 6px; }
+  #modal a { color:#2a7ae2; word-break:break-all; }
+  .task { display:flex; align-items:center; gap:8px; background:#FFF7E8; border-radius:12px; padding:8px 12px; margin:6px 0; }
+  .task input { width:20px; height:20px; }
+  .res { background:#F4F9F1; border-radius:12px; padding:8px 12px; margin:6px 0; }
+  .res .lt { color:#999; font-size:13px; }
+  .gloss { background:#FFF1C9; border-radius:12px; padding:8px 12px; margin:6px 0; font-size:14px; }
+  .confetti { position:fixed; top:-40px; font-size:28px; z-index:99; animation:fall 1.4s ease-in forwards; pointer-events:none; }
+  @keyframes fall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
+  .petal { position:fixed; top:-30px; z-index:99; pointer-events:none;
+    width:14px; height:10px; border-radius:60% 40% 55% 45%;
+    background:radial-gradient(ellipse at 35% 35%, #FFE3EC 0%, #FFB7CE 55%, #F797B8 100%);
+    box-shadow:0 0 3px rgba(255,182,206,.5);
+    animation:petalFall linear forwards; }
+  @keyframes petalFall {
+    0%   { transform:translate(0,0) rotate(0deg); opacity:1; }
+    25%  { transform:translate(28px,26vh) rotate(140deg); }
+    50%  { transform:translate(-22px,52vh) rotate(260deg); opacity:.95; }
+    75%  { transform:translate(24px,78vh) rotate(400deg); }
+    100% { transform:translate(-14px,106vh) rotate(520deg); opacity:.25; }
+  }
+  /* 云上棋路(素材版地图) */
+  .qzSeam { position:absolute; left:0; right:0; top:-34px; height:68px; pointer-events:none; z-index:2;
+    background:
+      radial-gradient(52% 100% at 12% 50%, rgba(252,250,245,.95) 0%, rgba(252,250,245,0) 70%),
+      radial-gradient(46% 100% at 34% 44%, rgba(250,246,238,.9) 0%, rgba(250,246,238,0) 70%),
+      radial-gradient(55% 100% at 57% 55%, rgba(252,250,245,.92) 0%, rgba(252,250,245,0) 70%),
+      radial-gradient(48% 100% at 80% 46%, rgba(250,247,240,.9) 0%, rgba(250,247,240,0) 70%),
+      radial-gradient(40% 100% at 96% 52%, rgba(252,250,245,.88) 0%, rgba(252,250,245,0) 70%);
+    filter:blur(2px); }
+  #map { padding:0; }
+  #qzScroll { width:100%; }
+  .qzSeg { position:relative; width:100%; }
+  .qzSeg .qzBg { display:block; width:100%; height:auto; }
+  .qzLm { position:absolute; width:15%; transform:translate(-50%,-50%); pointer-events:none;
+    filter:drop-shadow(0 4px 6px rgba(120,80,20,.15)); }
+  .qzNode { position:absolute; width:13%; transform:translate(-50%,-50%); background:none; border:none;
+    padding:0; cursor:pointer; }
+  .qzNode img { width:100%; display:block; }
+  .qzNode:active { transform:translate(-50%,-50%) scale(.93); }
+  .qzNode.cur { width:16%; z-index:3; }
+  .qzPin { position:absolute; left:50%; top:-72%; width:64%; transform:translateX(-50%);
+    animation:pinbob2 1.6s ease-in-out infinite; }
+  #qzCard { position:relative; width:100%; margin:-4px 0 12px; }
+  .qzCardBg { width:100%; display:block; }
+  .qzCardIn { position:absolute; inset:9% 8% 10% 8%; display:flex; flex-direction:column; align-items:center; }
+  .qzPlank { position:relative; width:72%; margin-top:-2%; }
+  .qzPlank img { width:100%; display:block; }
+  .qzPlank span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:clamp(13px,2.6vw,19px); font-weight:700; color:#6b4a1d; letter-spacing:1px; }
+  .qzRank { display:flex; align-items:center; gap:5px; font-size:clamp(11px,2.2vw,14px);
+    color:#a9772a; font-weight:700; margin:2% 0; }
+  .qzStarS { width:18px; }
+  .qzLvs { display:flex; gap:3%; flex-wrap:wrap; justify-content:center; width:96%; }
+  .qzLv { position:relative; width:15%; min-width:52px; background:none; border:none; padding:0; cursor:pointer; }
+  .qzLv img:first-child { width:100%; display:block; }
+  .qzLv.lock { filter:grayscale(.9) opacity(.55); }
+  .qzLv:active { transform:scale(.93); }
+  .qzLvStar { position:absolute; right:-6%; top:-8%; width:38% !important; }
+  .qzLv span { display:block; font-size:clamp(9px,1.8vw,12px); color:#7a5a2b; font-weight:700;
+    margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .starfly { position:fixed; font-size:34px; z-index:99; pointer-events:none; opacity:1;
+    transition:transform .65s cubic-bezier(.45,.05,.55,.95), opacity .65s; }
+  #stars.starpulse { animation:starp .7s ease-in-out; }
+  @keyframes starp { 50% { transform:scale(1.3); } }
+  .winpulse { animation:winp .9s ease-in-out; }
+  @keyframes winp { 50% { transform:scale(1.028); } }
+  #btns { transition:opacity .35s ease; }
+  .shake { animation:shk .3s; }
+  @keyframes shk { 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  #world { position:relative; width:100%; }
+  #plaza { position:relative; width:100vw; margin-left:calc(50% - 50vw); height:min(76vh,calc(100vh - 200px)); border-radius:0; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.18); touch-action:none; cursor:pointer; background:#CFE8F7; }
+  #plazaBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #rab { position:absolute; height:30%; bottom:4%; left:50%; transform:translateX(-50%); transition:left 1.05s ease,transform .2s ease; pointer-events:none; filter:drop-shadow(0 5px 5px rgba(0,0,0,.18)); animation:bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 50%{ margin-bottom:6px; } }
+  .hot { position:absolute; transform:translate(-50%,-50%); background:rgba(255,255,255,.84); border:2px solid #fff; border-radius:999px; padding:5px 11px; font-size:13px; font-weight:700; color:#3A5A78; cursor:pointer; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+  .hot.lock { opacity:.55; color:#888; }
+  .hot.dot { padding:2px 5px; font-size:11px; background:rgba(255,255,255,.55); border-width:1px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  @media (max-width:480px){ .hot.dot{font-size:10px;padding:1px 4px;} }
+  .hot.cur { font-size:16px; padding:8px 15px; border-color:#F5B942; background:rgba(255,252,240,.95); }
+  .hot.cur .pinIco { display:inline-block; animation:pinbob2 1.6s ease-in-out infinite; }
+  @keyframes pinbob2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+  .hot:active { transform:translate(-50%,-50%) scale(.93); }
+  #wHint, #iHint { text-align:center; color:#6E8A7C; font-size:15px; margin:10px 0 2px; min-height:22px; }
+  #fade, #ifade { position:absolute; inset:0; background:#EAF4EE; opacity:0; pointer-events:none; transition:opacity .45s; z-index:5; }
+  #fade.on, #ifade.on { opacity:1; }
+  #insideWrap { position:relative; width:100%; aspect-ratio:16/9; border-radius:18px; overflow:hidden; box-shadow:0 6px 20px rgba(80,120,90,.28); background:#CFE8F7; }
+  #insideBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; animation:kb 16s ease-in-out infinite alternate; }
+  @keyframes kb { from{ transform:scale(1) translate(0,0);} to{ transform:scale(1.12) translate(-2%,-1.5%);} }
+
+</style>
+<!--/QZ_SKIN-->
+<style>
+  /* 合并态浮层定位覆写(必须排在 QZ_SKIN 之后) */
+  #qzApp{position:fixed;inset:0;z-index:50;display:none;overflow:auto;
+    background:rgba(251,247,238,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+  #qzApp.on{display:flex;flex-direction:column;align-items:center;}
+  #qzApp [onclick*="world3d"]{display:none!important;} /* 世界里不再需要「3D 棋境」入口 */
+</style>
+<div id="qzApp">
+<!--QZ_APP-->
+<header>
+  <button class="pill" id="backBtn" style="visibility:hidden">地图</button>
+  <div class="ttl" id="ttl">🐰 棋子大冒险</div>
+  <div style="display:flex;gap:7px">
+    <button class="pill" id="worldBtn" style="display:none">🌿 看风景</button>
+    <button class="pill" id="stars">⭐ 0</button>
+    <button class="pill" id="sndBtn">🔊</button>
+    <button class="pill" id="langBtn" title="语音语言">🗣 中</button>
+    <button class="pill" id="parentBtn">👪</button>
+  </div>
+</header>
+<main>
+  <div class="screen on" id="world">
+    <div id="plaza">
+      <img id="plazaBg" src="assets/scene_plaza.png?v=3" alt="">
+      <div id="hotspots"></div>
+      <img id="rab" alt="">
+      <div id="fade"></div>
+    </div>
+    <div id="wHint">点一座冰屋学一招 · 或走进棋盘内部</div>
+    <div style="text-align:center;font-size:13px;color:#a98a52;margin-top:2px">学围棋，更学会思考和面对挫折 · <a href="#" onclick="document.getElementById('parentBtn').click();return false" style="color:#5B8DD9">家长 30 秒了解</a></div>
+    <div class="btnrow">
+      <button class="big blue" id="enterBtn">走进棋盘内部</button>
+      <button class="big" onclick="location.href='world3d.html'">3D 棋境</button>
+    </div>
+  </div>
+  <div class="screen" id="inside">
+    <div id="insideWrap">
+      <img id="insideBg" src="assets/scene_inside.png?v=3" alt="">
+      <div id="ifade"></div>
+    </div>
+    <div id="iHint">哇！你现在和棋子一样大——这里就是大决战的战场！</div>
+    <div class="btnrow">
+      <button class="big" id="duelBtn">开始对决</button>
+      <button class="big gray" id="plazaBtn">回到广场</button>
+    </div>
+  </div>
+  <div class="screen" id="map"></div>
+  <div class="screen" id="game">
+    <div id="bubble"><span class="panda">🐰</span><span id="msg"></span></div>
+    <canvas id="bd"></canvas>
+    <div class="btnrow" id="btns"></div>
+  </div>
+</main>
+<div id="modal"><div class="box" id="modalBody"></div></div>
+<!--/QZ_APP-->
+</div>
 <script src="levels5k.js?v=2"></script>
+<script src="levels_dan.js?v=1" onerror="this.remove()"></script>
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=11"></script>
+<script>window.QZ_EMBED=true;</script>
+<script src="qz-engine.js?v=1"></script>
+<script src="map_anchors.js?v=2" onerror="this.remove()"></script>
+<script src="qz-map.js?v=3" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -817,7 +1081,23 @@ for(let i=0;i<10;i++){
 
 const zoneEl=$('zone');
 let curZone=null;
-window.__goCourse=u=>{location.href=u;};
+window.__goCourse=u=>{
+  if(window.QZ){
+    const m=/ch=(\d+)/.exec(u);
+    zoneEl.style.display='none';curZone=null;
+    if(ROMP.on&&ROMP.done){ROMP.on=false;$('hint').textContent='↑↓←→ 走路 · 拖动看风景 · 滚轮放大缩小';}
+    QZ.openChapter(m?+m[1]:1);
+  }else location.href=u;
+};
+window.__openCourse=()=>__goCourse(STATIONS[currentIdx].link());
+window.QZ_HOST={
+  show(){document.getElementById('qzApp').classList.add('on');},
+  hide(){document.getElementById('qzApp').classList.remove('on');
+    try{prog=JSON.parse(localStorage.getItem('qz2_prog'))||{};refreshStations();}catch(e){}},
+  romp(backKey){this.hide();
+    ROMP.on=true;ROMP.back=backKey||'';ROMP.popped=0;ROMP.done=false;
+    ROMP.list.length=0;rompGroup.clear();startRomp();}
+};
 const guideCool={};
 function stationPanel(i){
   const st=STATIONS[i],s=stat(i);
@@ -971,7 +1251,7 @@ function rompPop(m){
     setTimeout(()=>sayId3('rp_done1'),350);
     const chm=ROMP.back.match(/^c(\d+)l/);
     const href='index.html'+(chm?('?ch='+chm[1]):'');
-    zoneEl.innerHTML='<b>🫧 撒欢结束！</b><br>玩得真开心，回去继续冒险吧！<br><button onclick="location.href=\''+href+'\'" style="background:#F2C76E;color:#7a5a16">回去继续冒险</button>';
+    zoneEl.innerHTML='<b>🫧 撒欢结束！</b><br>玩得真开心，回去继续冒险吧！<br><button onclick="__goCourse(\''+href+'\')" style="background:#F2C76E;color:#7a5a16">回去继续冒险</button>';
     zoneEl.style.display='block';
   }else{
     sayId3('rp_pop1');
@@ -979,6 +1259,9 @@ function rompPop(m){
   }
 }
 if(ROMP.on)startRomp();
+/* ?ch= 深链:直接展开课程浮层(撒欢模式除外) */
+{const chDeep=new URLSearchParams(location.search).get('ch');
+ if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
 function pClickGrid(i,j){
   if(!playMode||pOver||pBusy)return;
   if(i<0||j<0||i>=GN||j>=GN)return;

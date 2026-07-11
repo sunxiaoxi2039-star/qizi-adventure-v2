@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>棋境 · 白瓷兔子世界</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif;user-select:none;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;}
+  #hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.82);
+    color:#4a5a6a;font-size:14px;font-weight:600;padding:8px 18px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);white-space:nowrap;}
+  #zone{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(255,255,255,.92);
+    border-radius:18px;padding:12px 20px;font-size:15px;color:#3a4a5a;box-shadow:0 4px 18px rgba(0,0,0,.12);
+    display:none;text-align:center;max-width:86vw;}
+  #zone b{color:#B5651D;font-size:17px;}
+  #zone button{margin-top:8px;border:none;background:#5B8DD9;color:#fff;font-size:15px;font-weight:700;
+    padding:8px 18px;border-radius:12px;cursor:pointer;}
+  #mini{position:fixed;left:14px;bottom:14px;width:118px;height:118px;background:rgba(255,255,255,.78);
+    border-radius:20px;box-shadow:0 2px 12px rgba(0,0,0,.10);backdrop-filter:blur(4px);}
+  .mdot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);}
+  .mdot.done{background:#7CC08F;}
+  .mdot.next{background:#F5B942;box-shadow:0 0 0 3px rgba(245,185,66,.3);animation:pp 1.6s infinite;}
+  .mdot.lock{background:#D9D6CF;}
+  @keyframes pp{50%{box-shadow:0 0 0 6px rgba(245,185,66,.15);}}
+  #mrab{position:absolute;width:9px;height:9px;border-radius:50%;background:#F06FA8;border:2px solid #fff;transform:translate(-50%,-50%);}
+  #mnext{position:fixed;left:14px;bottom:136px;background:rgba(255,255,255,.82);color:#7a5a2a;
+    font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+  #back{position:fixed;left:14px;top:14px;border:none;background:rgba(255,255,255,.82);color:#4a5a6a;
+    font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hint">↑↓←→ 走路转身 · 拖动画面看风景 · 点地面也能走</div>
+<div id="zone"></div>
+<button id="back" onclick="location.href='index.html'">⬅ 回到课程版</button>
+<div id="mini"></div><div id="mnext"></div>
+<div id="hud" style="position:fixed;right:14px;top:14px;background:rgba(255,255,255,.82);color:#4a5a6a;font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);"></div>
+<script src="levels5k.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.12;
+app.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x6FB4EA);
+scene.fog=new THREE.Fog(0xE4F1FB,50,140);
+new THREE.TextureLoader().load('assets/v2/sky_pano.jpg',t=>{
+  t.mapping=THREE.EquirectangularReflectionMapping;t.colorSpace=THREE.SRGBColorSpace;
+  scene.background=t;scene.environment=t;},undefined,()=>{});
+
+const cam=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,.1,400);
+
+const hemi=new THREE.HemisphereLight(0xCFE6FF,0xFFF6EA,1.05);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xFFF3E0,2.1);
+sun.position.set(24,38,18);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-60;sun.shadow.camera.right=60;
+sun.shadow.camera.top=60;sun.shadow.camera.bottom=-60;
+sun.shadow.camera.far=140;sun.shadow.bias=-0.0004;sun.shadow.radius=6;
+scene.add(sun);
+
+const WHITE=new THREE.MeshStandardMaterial({color:0xF7F4EE,roughness:.88});
+const WHITE2=new THREE.MeshStandardMaterial({color:0xEFF0F2,roughness:.9});
+const CE=new THREE.MeshPhysicalMaterial({color:0xFBF9F4,roughness:.42,clearcoat:.28,clearcoatRoughness:.55});
+const CE2=new THREE.MeshPhysicalMaterial({color:0xF2F3F6,roughness:.45,clearcoat:.22,clearcoatRoughness:.6});
+const CREAM=new THREE.MeshStandardMaterial({color:0xF3E9DA,roughness:.85});
+const BLACKM=new THREE.MeshPhysicalMaterial({color:0x1A1B1E,roughness:.28,clearcoat:.4,clearcoatRoughness:.4});
+const WSTONE=new THREE.MeshPhysicalMaterial({color:0xFBFBF9,roughness:.25,clearcoat:.4,clearcoatRoughness:.4});
+const PINK=new THREE.MeshStandardMaterial({color:0xF2A8BC,roughness:.7});
+const GREEN=new THREE.MeshStandardMaterial({color:0x9CC48E,roughness:.8});
+const WOODSIDE=new THREE.MeshStandardMaterial({color:0xB98B43,roughness:.8});
+
+const ground=new THREE.Mesh(new THREE.CircleGeometry(160,64),
+  new THREE.MeshStandardMaterial({color:0xF8F6F1,roughness:.96}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+
+function undulate(x,z,r,h,mat){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(r,28,18),mat||WHITE);
+  m.scale.y=h/r;m.position.set(x,0,z);m.receiveShadow=true;m.castShadow=false;scene.add(m);return m;
+}
+undulate(-70,-90,50,7);undulate(70,-95,55,9);undulate(-95,-30,40,5);undulate(95,-10,45,6);
+undulate(-40,-120,60,14,WHITE2);undulate(45,-125,66,16,WHITE2);
+
+function bunny(scale,mat,withFace){
+  const g=new THREE.Group(),M=mat||CE;
+  const body=new THREE.Mesh(new THREE.SphereGeometry(.46,32,24),M);
+  body.scale.set(1,1.22,.9);body.position.y=.55;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.37,32,24),M);
+  head.position.set(0,1.24,.02);head.scale.set(1,.96,.94);g.add(head);
+  const earG=new THREE.CapsuleGeometry(.1,.5,8,16);
+  const e1=new THREE.Mesh(earG,M);e1.position.set(-.15,1.85,-.02);e1.rotation.z=.16;g.add(e1);
+  const e2=new THREE.Mesh(earG,M);e2.position.set(.15,1.85,-.02);e2.rotation.z=-.16;g.add(e2);
+  const inG=new THREE.CapsuleGeometry(.045,.32,6,10);
+  const i1=new THREE.Mesh(inG,PINK);i1.position.set(-.15,1.86,.06);i1.rotation.z=.16;g.add(i1);
+  const i2=new THREE.Mesh(inG,PINK);i2.position.set(.15,1.86,.06);i2.rotation.z=-.16;g.add(i2);
+  const armG=new THREE.SphereGeometry(.12,14,10);
+  const a1=new THREE.Mesh(armG,M);a1.position.set(-.36,.78,.12);a1.scale.set(.8,1.25,.8);g.add(a1);
+  const a2=new THREE.Mesh(armG,M);a2.position.set(.36,.78,.12);a2.scale.set(.8,1.25,.8);g.add(a2);
+  const ftG=new THREE.SphereGeometry(.15,14,10);
+  const f1=new THREE.Mesh(ftG,M);f1.position.set(-.18,.1,.18);f1.scale.set(1.1,.55,1.5);g.add(f1);
+  const f2=new THREE.Mesh(ftG,M);f2.position.set(.18,.1,.18);f2.scale.set(1.1,.55,1.5);g.add(f2);
+  const tail=new THREE.Mesh(new THREE.SphereGeometry(.13,16,12),
+    new THREE.MeshStandardMaterial({color:0xF06FA8,roughness:.55}));
+  tail.position.set(0,.5,-.44);g.add(tail);
+  if(withFace){
+    const eyeM=new THREE.MeshStandardMaterial({color:0x26262B,roughness:.3});
+    const eg=new THREE.SphereGeometry(.04,10,10);
+    const ey1=new THREE.Mesh(eg,eyeM);ey1.position.set(-.13,1.3,.33);g.add(ey1);
+    const ey2=new THREE.Mesh(eg,eyeM);ey2.position.set(.13,1.3,.33);g.add(ey2);
+    const ch=new THREE.SphereGeometry(.05,10,8);
+    const c1=new THREE.Mesh(ch,PINK);c1.position.set(-.2,1.2,.29);c1.scale.z=.35;g.add(c1);
+    const c2=new THREE.Mesh(ch,PINK);c2.position.set(.2,1.2,.29);c2.scale.z=.35;g.add(c2);
+    const no=new THREE.Mesh(new THREE.SphereGeometry(.028,8,8),PINK);
+    no.position.set(0,1.25,.36);g.add(no);
+  }
+  g.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
+  g.scale.setScalar(scale);return g;
+}
+
+const player=bunny(1.15,CE,false);
+player.position.set(0,0,16);scene.add(player);
+
+const statue=bunny(9,CE2,true);
+statue.position.set(0,3.6,-62);statue.rotation.y=0;scene.add(statue);
+
+const GLB_ROT=-Math.PI/2;
+new GLTFLoader().load('assets/models/bunny.glb',glb=>{
+  try{
+    const proto=glb.scene;
+    proto.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=false;}});
+    const box=new THREE.Box3().setFromObject(proto);
+    const h=box.max.y-box.min.y,cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2;
+    function make(height){
+      const g=proto.clone(true);
+      const sc=height/h;g.scale.setScalar(sc);
+      g.position.set(-cx*sc,-box.min.y*sc,-cz*sc);
+      const w=new THREE.Group();w.add(g);w.rotation.y=GLB_ROT;return w;
+    }
+    player.clear();player.add(make(2.15));
+    statue.clear();statue.add(make(2.08));
+    statue.position.y=3.82;
+  }catch(e){}
+},undefined,()=>{});
+const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(13,15,4,40),WHITE2);
+pedestal.position.set(0,1.8,-62);pedestal.receiveShadow=true;pedestal.castShadow=true;scene.add(pedestal);
+undulate(0,-62,26,6,WHITE2);
+
+function boardTexture(){
+  const S=1024,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d');
+  x.fillStyle='#C89A5B';x.fillRect(0,0,S,S);
+  x.strokeStyle='#8A6430';x.lineWidth=10;x.strokeRect(30,30,S-60,S-60);
+  const n=9,m=70,st=(S-2*m)/(n-1);
+  x.strokeStyle='#7A5526';x.lineWidth=6;
+  for(let i=0;i<n;i++){
+    x.beginPath();x.moveTo(m,m+i*st);x.lineTo(S-m,m+i*st);x.stroke();
+    x.beginPath();x.moveTo(m+i*st,m);x.lineTo(m+i*st,S-m);x.stroke();
+  }
+  x.fillStyle='#6B4A20';
+  [[2,2],[6,2],[4,4],[2,6],[6,6]].forEach(([a,b])=>{
+    x.beginPath();x.arc(m+a*st,m+b*st,13,0,7);x.fill();});
+  const t=new THREE.CanvasTexture(c);t.anisotropy=8;return t;
+}
+const GN=9, BX0=-8.5+17*(70/1024), BZ0=-14+BX0, CELL=17*((1024-140)/1024)/(GN-1);
+const boardMat=[WOODSIDE,WOODSIDE,new THREE.MeshStandardMaterial({map:boardTexture(),roughness:.8}),WOODSIDE,WOODSIDE,WOODSIDE];
+const board=new THREE.Mesh(new THREE.BoxGeometry(17,.7,17),boardMat);
+board.position.set(0,.35,-14);board.receiveShadow=true;board.castShadow=true;scene.add(board);
+
+function stone(x,z,black,r,onBoard,parent){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(r,22,16),black?BLACKM:WSTONE);
+  m.scale.y=.55;m.position.set(x,(onBoard?.7:0)+r*.55*.92,z);
+  m.castShadow=true;m.receiveShadow=true;(parent||scene).add(m);return m;
+}
+[[-11,-4,1],[-13,-9,0],[12,-6,0],[13.5,-11,1],[-9,-22,0],[10,-23,1],[-5,-2,1],[6,-1,0]]
+ .forEach(([x,z,b])=>stone(x,z,b,.95,false));
+
+const CHDEF=[[1,5,"气球村"],[2,5,"点心镇"],[3,5,"警报站"],[4,4,"双胞胎桥"],[5,4,"魔法学院"],[6,4,"勇士谷"],[7,6,"魔法塔"]];
+if(window.QK5){
+  if(QK5.extend7)CHDEF[6][1]+=QK5.extend7.length;
+  if(QK5.chapters)QK5.chapters.forEach(c=>CHDEF.push([c.id,c.levels.length,(c.name.split("·")[0]||"").trim()]));
+}
+const HAS5K=!!(window.QK5&&QK5.chapters&&QK5.chapters.length>=3);
+let prog={};try{prog=JSON.parse(localStorage.getItem("qz2_prog"))||{};}catch(e){}
+const chKeys=d=>Array.from({length:d[1]},(_,i)=>"c"+d[0]+"l"+(i+1));
+const chDone=d=>chKeys(d).filter(k=>prog[k]).length;
+const chComplete=d=>chDone(d)===d[1];
+const rangeStats=(a,b)=>{let done=0,tot=0;for(let i=a;i<=b;i++){done+=chDone(CHDEF[i]);tot+=CHDEF[i][1];}return{done,tot};};
+const firstOpenCh=(a,b)=>{for(let i=a;i<=b;i++)if(!chComplete(CHDEF[i]))return CHDEF[i][0];return CHDEF[a][0];};
+
+const SPOTS=[[4,4],[2,2],[6,6],[2,6],[6,2],[4,6],[6,4],[2,4],[4,2],[3,3]];
+const achGroup=new THREE.Group();scene.add(achGroup);
+let grown=0;
+CHDEF.forEach((d,i)=>{
+  if(chComplete(d)){grown++;
+    const [gi,gj]=SPOTS[i];
+    stone(BX0+gi*CELL,BZ0+gj*CELL,i%2===0,.58,true,achGroup);}
+});
+const totAll=rangeStats(0,CHDEF.length-1);
+document.getElementById('hud').textContent="⭐ "+totAll.done+"/"+totAll.tot+" · 大棋盘已长出 "+grown+" 颗棋子";
+
+const arch=new THREE.Group();
+const radii=[5.2,4.5,3.8,3.1];
+radii.forEach((r,i)=>{
+  const t=new THREE.Mesh(new THREE.TorusGeometry(r,.42,18,60,Math.PI),i%2?WHITE:BLACKM);
+  t.castShadow=true;arch.add(t);
+});
+arch.position.set(-19,0,-8);arch.rotation.y=Math.PI/3.2;scene.add(arch);
+const archBun=bunny(.6,CE);archBun.position.set(-18.4,0,-7.6);archBun.rotation.y=1.2;scene.add(archBun);
+
+function lounge(x,z,r,rotY){
+  const g=new THREE.Group();
+  const shell=new THREE.Mesh(new THREE.SphereGeometry(r,36,20,.7,2*Math.PI-1.4,0,Math.PI/2),
+    new THREE.MeshPhysicalMaterial({color:0xFBF9F4,roughness:.45,clearcoat:.25,clearcoatRoughness:.6,side:THREE.DoubleSide}));
+  shell.castShadow=true;shell.receiveShadow=true;g.add(shell);
+  const floor=new THREE.Mesh(new THREE.CircleGeometry(r*.92,32),CREAM);
+  floor.rotation.x=-Math.PI/2;floor.position.y=.02;g.add(floor);
+  const sofa=new THREE.Mesh(new THREE.CapsuleGeometry(r*.16,r*.7,6,14),CREAM);
+  sofa.rotation.z=Math.PI/2;sofa.position.set(0,r*.15,-r*.35);sofa.castShadow=true;g.add(sofa);
+  const cushion=new THREE.Mesh(new THREE.SphereGeometry(r*.14,14,10),WHITE);
+  cushion.position.set(-r*.35,r*.16,-r*.3);cushion.scale.y=.7;g.add(cushion);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,r*.5,10),WOODSIDE);
+  pole.position.set(r*.4,r*.25,-r*.2);g.add(pole);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(r*.1,12,10),
+    new THREE.MeshStandardMaterial({color:0xFFD9A0,emissive:0xFFB85C,emissiveIntensity:1.6,roughness:.5}));
+  bulb.position.set(r*.4,r*.55,-r*.2);g.add(bulb);
+  const lamp=new THREE.PointLight(0xFFC98A,26,r*4,2);
+  lamp.position.set(r*.35,r*.6,-r*.15);g.add(lamp);
+  g.position.set(x,0,z);g.rotation.y=rotY;scene.add(g);return g;
+}
+lounge(20,4,6.2,-.9);
+lounge(-21,8,5.4,.95);
+
+function dome(x,z,r){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(r,26,14,0,Math.PI*2,0,Math.PI/2),CE);
+  m.position.set(x,0,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);
+  const door=new THREE.Mesh(new THREE.CircleGeometry(r*.32,18),
+    new THREE.MeshStandardMaterial({color:0xFFC98A,emissive:0xFFA950,emissiveIntensity:1.1}));
+  const ang=Math.atan2(-x,-(z-(-14)))||0;
+  door.position.set(x+Math.sin(ang)*r*.98,r*.32,z+Math.cos(ang)*r*.98);
+  door.rotation.y=ang;scene.add(door);
+}
+dome(-13,-30,3.4);dome(-8,-38,2.2);dome(14,-32,3);dome(8,-40,2.4);dome(-26,-18,2.6);dome(26,-16,2.8);
+const mush=new THREE.Group();
+const mcap=new THREE.Mesh(new THREE.SphereGeometry(1.5,20,12,0,Math.PI*2,0,Math.PI/2),WHITE);
+mcap.position.y=1.3;mush.add(mcap);
+const mstem=new THREE.Mesh(new THREE.CylinderGeometry(.55,.7,1.4,14),CREAM);
+mstem.position.y=.7;mush.add(mstem);
+mush.children.forEach(o=>o.castShadow=true);
+mush.position.set(-14,0,2);scene.add(mush);
+
+const polka=new THREE.Mesh(new THREE.SphereGeometry(2.4,26,14,0,Math.PI*2,0,Math.PI/2),CE);
+polka.position.set(-10,0,5);polka.castShadow=true;scene.add(polka);
+[[.3,.75,.9],[-.9,.5,2.1],[1.3,.45,2.0],[-.2,.4,2.35],[.9,.8,1.4],[-1.5,.7,1.5]].forEach(([a,h,rr])=>{
+  const s=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),BLACKM);
+  s.position.set(-10+Math.sin(a)*rr, h+1.1, 5+Math.cos(a)*rr*.7);s.scale.z=.5;scene.add(s);
+});
+function vine(x,y,z){
+  for(let k=0;k<4;k++){const s=new THREE.Mesh(new THREE.SphereGeometry(.16-k*.02,8,6),GREEN);
+    s.position.set(x+Math.sin(k*1.3)*.1,y-k*.32,z);scene.add(s);}
+}
+vine(24.5,4.6,1);vine(25.6,4.2,2.4);vine(-24.8,3.9,10.5);
+[[-38,-72,2.2,9],[32,-78,2.6,11],[44,-58,1.6,7]].forEach(([x,z,r,h])=>{
+  const t=new THREE.Mesh(new THREE.CapsuleGeometry(r,h,8,18),CE2);
+  t.position.set(x,h/2,z);t.castShadow=true;scene.add(t);
+});
+for(let i=0;i<7;i++){
+  const b=bunny(.5+Math.random()*.2,CE);
+  const a=Math.random()*Math.PI*2,d=10+Math.random()*16;
+  b.position.set(Math.sin(a)*d,0,-14+Math.cos(a)*d*.8);
+  b.rotation.y=Math.random()*Math.PI*2;scene.add(b);
+}
+for(let i=0;i<14;i++){
+  const b=bunny(.34+Math.random()*.14,CE);
+  const a=(i/14)*Math.PI*1.6-Math.PI*.8, d=19+Math.random()*7;
+  b.position.set(Math.sin(a)*d,0,-62+Math.cos(a)*d);
+  b.lookAt(0,1,-62);scene.add(b);
+}
+
+function cloud(x,y,z,s){
+  const g=new THREE.Group();
+  const cm=new THREE.MeshStandardMaterial({color:0xFFFFFF,roughness:1});
+  [[0,0,0,2.6],[2.2,.4,.3,1.8],[-2.1,.3,-.2,1.6],[.8,1.1,0,1.5],[-.9,1,0,1.3]].forEach(([a,b,c,r])=>{
+    const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),cm);m.position.set(a,b,c);g.add(m);});
+  g.position.set(x,y,z);g.scale.setScalar(s);scene.add(g);return g;
+}
+cloud(-30,22,-70,1.6);cloud(28,26,-80,2);cloud(-52,18,-40,1.2);cloud(50,20,-30,1.1);cloud(8,28,-110,2.4);
+
+const bubbles=[];
+const bubM=new THREE.MeshStandardMaterial({color:0xFFFFFF,transparent:true,opacity:.16,roughness:.15});
+for(let i=0;i<9;i++){
+  const r=.4+Math.random()*.9;
+  const b=new THREE.Mesh(new THREE.SphereGeometry(r,18,14),bubM);
+  b.position.set((Math.random()-.5)*60,3+Math.random()*20,-50+Math.random()*50);
+  b.userData.v=.25+Math.random()*.5;bubbles.push(b);scene.add(b);
+}
+
+const ZONES=[
+  {p:new THREE.Vector3(-19,0,-8),r:7,name:"⬛⬜ 鸿蒙之门",desc:"启蒙课：气 · 吃子 · 打吃逃跑（30K→20K）",
+   built:true,stat:()=>rangeStats(0,4),open:()=>true,link:()=>"index.html?ch="+firstOpenCh(0,4)},
+  {p:new THREE.Vector3(0,0,-14),r:9.5,name:"🟫 大棋盘道场",desc:"实战对弈 + 复盘（贯穿全程）",play:true,
+   built:true,stat:()=>rangeStats(5,5),open:()=>chComplete(CHDEF[4]),link:()=>"index.html?ch=6",lockTip:"先通关魔法学院，勇士谷才开门"},
+  {p:new THREE.Vector3(20,0,4),r:8,name:"🛋️ 点心客厅",desc:"高级吃子术：征子 · 倒扑 · 关门吃（20K→15K）",
+   built:true,stat:()=>rangeStats(6,6),open:()=>chComplete(CHDEF[5]),link:()=>"index.html?ch=7",lockTip:"先在大棋盘道场毕业，客厅才亮灯"},
+  {p:new THREE.Vector3(-21,0,8),r:7,name:"🍄 生命之泉",desc:"死活课：直三曲三 · 点杀做活（15K→10K）",
+   built:HAS5K,stat:()=>rangeStats(7,7),open:()=>chComplete(CHDEF[6]),link:()=>"index.html?ch=8",lockTip:"先在点心客厅学完高级吃子术"},
+  {p:new THREE.Vector3(0,0,-35),r:9,name:"⛄ 对杀谷",desc:"对杀课：先紧外气 · 谁气长谁赢（10K→7K）",
+   built:HAS5K,stat:()=>rangeStats(8,8),open:()=>chComplete(CHDEF[7]),link:()=>"index.html?ch=9",lockTip:"先通关生命之泉"},
+  {p:new THREE.Vector3(0,0,-52),r:13,name:"🐰 兔祖师圣殿",desc:"布局圣殿：金角银边 · 大局方向（7K→5K）",
+   built:HAS5K,stat:()=>rangeStats(9,9),open:()=>chComplete(CHDEF[8]),link:()=>"index.html?ch=10",lockTip:"先穿过对杀谷，才能见到兔祖师"}
+];
+const zoneEl=document.getElementById('zone');
+let curZone=null;
+window.__goCourse=u=>{location.href=u;};
+function showZone(z){
+  if(curZone===z)return;curZone=z;
+  if(!z){zoneEl.style.display='none';return;}
+  let html='<b>'+z.name+'</b><br>'+z.desc;
+  if(!z.built){html+='<br>🚧 建设中 · 下个版本开放';}
+  else{
+    const s=z.stat();
+    html+='<br>⭐ 进度 '+s.done+' / '+s.tot;
+    if(z.play)html+='<br><button onclick="__startPlay()" style="background:#56A95C">⚔️ 就在这里下棋</button> ';
+    if(z.open())html+=(z.play?'':'<br>')+'<button onclick="__goCourse(\''+z.link()+'\')">📖 进入课程</button>';
+    else html+='<br>🔒 '+z.lockTip;
+  }
+  zoneEl.innerHTML=html;
+  zoneEl.style.display='block';
+}
+
+/* ---------- 3D 吃子棋（在大棋盘上直接对局） ---------- */
+let playMode=false,pOver=false,pBusy=false,pg=null;
+const playGroup=new THREE.Group();scene.add(playGroup);
+const pMesh=new Map();
+const pn=(i,j)=>[[i-1,j],[i+1,j],[i,j-1],[i,j+1]].filter(([a,b])=>a>=0&&b>=0&&a<GN&&b<GN);
+function pGrp(g,i,j){
+  const c=g[i][j],seen=new Set([i+","+j]),libs=new Set(),st=[[i,j]],out=[];
+  while(st.length){const[a,b]=st.pop();out.push([a,b]);
+    for(const[x,y]of pn(a,b)){const k=x+","+y;
+      if(g[x][y]===0)libs.add(k);
+      else if(g[x][y]===c&&!seen.has(k)){seen.add(k);st.push([x,y]);}}}
+  return{stones:out,libs};
+}
+function pTry(g,i,j,c){
+  if(g[i][j]!==0)return{ok:false};
+  const g2=g.map(r=>r.slice());g2[i][j]=c;const cap=[];
+  for(const[x,y]of pn(i,j))if(g2[x][y]===3-c){
+    const gr=pGrp(g2,x,y);
+    if(gr.libs.size===0)for(const[a,b]of gr.stones){if(g2[a][b]!==0){g2[a][b]=0;cap.push([a,b]);}}}
+  if(pGrp(g2,i,j).libs.size===0)return{ok:false,suicide:true};
+  return{ok:true,g2,cap};
+}
+function pGroups(g,c){const seen=new Set(),out=[];
+  for(let i=0;i<GN;i++)for(let j=0;j<GN;j++)
+    if(g[i][j]===c&&!seen.has(i+","+j)){const gr=pGrp(g,i,j);
+      gr.stones.forEach(([a,b])=>seen.add(a+","+b));out.push(gr);}
+  return out;}
+function pAI(g){
+  const legal=[];
+  for(let i=0;i<GN;i++)for(let j=0;j<GN;j++){const t=pTry(g,i,j,2);if(t.ok)legal.push({i,j,t});}
+  if(!legal.length)return null;
+  const caps=legal.filter(m=>m.t.cap.length>0);
+  if(caps.length&&Math.random()<.55)return caps[0];
+  for(const gr of pGroups(g,2))if(gr.libs.size===1){
+    const[a,b]=[...gr.libs][0].split(",").map(Number);
+    const t=pTry(g,a,b,2);
+    if(t.ok&&pGrp(t.g2,a,b).libs.size>=2)return{i:a,j:b,t};}
+  const at=legal.filter(m=>pGrp(m.t.g2,m.i,m.j).libs.size>=2&&pGroups(m.t.g2,1).some(x=>x.libs.size===1));
+  if(at.length&&Math.random()<.25)return at[Math.floor(Math.random()*at.length)];
+  let best=null,bs=-99;
+  for(const m of legal){
+    const my=pGrp(m.t.g2,m.i,m.j).libs.size;if(my<2&&legal.length>4)continue;
+    let adjB=0;for(const[x,y]of pn(m.i,m.j))if(g[x][y]===1)adjB++;
+    const ctr=-(Math.abs(m.i-4)+Math.abs(m.j-4))*.3;
+    const sc=my*.7+adjB+ctr+Math.random()*2;
+    if(sc>bs){bs=sc;best=m;}}
+  return best||legal[0];
+}
+function pMsg(html){zoneEl.innerHTML=html;zoneEl.style.display='block';}
+function pPanel(extra){
+  pMsg(extra+'<br><button onclick="__resetPlay()" style="background:#E8924A">🔄 再来一局</button> <button onclick="__exitPlay()" style="background:#bba98c">⬅ 退出对局</button>');
+}
+function pPlace(i,j,c){
+  const m=stone(BX0+i*CELL,BZ0+j*CELL,c===1,.6,true,playGroup);
+  pMesh.set(i+","+j,m);
+}
+function pRemove(list){for(const[a,b]of list){const m=pMesh.get(a+","+b);if(m){playGroup.remove(m);pMesh.delete(a+","+b);}}}
+window.__startPlay=()=>{
+  playMode=true;pOver=false;pBusy=false;
+  pg=Array.from({length:GN},()=>Array(GN).fill(0));
+  pMesh.clear();playGroup.clear();achGroup.visible=false;
+  player.position.set(0,0,-3.2);player.rotation.y=Math.PI;moving=false;
+  pPanel("<b>⚔️ 吃子棋 · 9路</b><br>点棋盘交叉点落子，谁先吃掉对方一颗棋子谁赢。你执黑先行！");
+  step(performance.now()+1);
+};
+window.__resetPlay=()=>{window.__startPlay();};
+window.__exitPlay=()=>{
+  playMode=false;playGroup.clear();pMesh.clear();achGroup.visible=true;
+  zoneEl.style.display='none';curZone=null;step(performance.now()+1);
+};
+function pClickGrid(i,j){
+  if(!playMode||pOver||pBusy)return;
+  if(i<0||j<0||i>=GN||j>=GN)return;
+  const res=pTry(pg,i,j,1);
+  if(!res.ok){pPanel(res.suicide?"这里下了没有气，不能下哦！":"这里已经有棋子啦！");return;}
+  pg=res.g2;pPlace(i,j,1);pRemove(res.cap);
+  if(res.cap.length>0){pOver=true;
+    pPanel("🎉 <b>你吃掉了糯糯的棋子，赢啦！</b><br>大棋盘记住了你的胜利！");step(performance.now()+1);return;}
+  pBusy=true;pPanel("糯糯想一想…");step(performance.now()+1);
+  setTimeout(()=>{
+    const m=pAI(pg);pBusy=false;
+    if(!m){pOver=true;pPanel("糯糯没地方下啦，你赢了！🏆");step(performance.now()+1);return;}
+    pg=m.t.g2;pPlace(m.i,m.j,2);pRemove(m.t.cap);
+    if(m.t.cap.length>0){pOver=true;
+      pPanel("💔 被吃掉了一颗…没关系！记住：只剩一口气就要快逃。");}
+    else{
+      const danger=pGroups(pg,1).some(x=>x.libs.size===1);
+      pPanel(danger?"⚡ <b>警报！你有棋子只剩一口气！</b>":"该你下啦！");
+    }
+    step(performance.now()+1);
+  },1600);
+}
+
+const ray=new THREE.Raycaster();
+const target=player.position.clone();
+let moving=false,camYaw=0;
+const keys={};
+addEventListener('keydown',e=>{keys[e.key]=true;
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.key]=false;});
+let pdX=0,pdY=0,dragging=false,downOnCanvas=false;
+renderer.domElement.addEventListener('pointerdown',e=>{
+  downOnCanvas=true;dragging=false;pdX=e.clientX;pdY=e.clientY;
+});
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(!downOnCanvas)return;
+  const dx=e.clientX-pdX;
+  if(!dragging&&Math.abs(dx)+Math.abs(e.clientY-pdY)>8)dragging=true;
+  if(dragging&&!playMode){camYaw-=dx*0.006;pdX=e.clientX;pdY=e.clientY;}
+});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!downOnCanvas)return;downOnCanvas=false;
+  if(dragging){dragging=false;return;}
+  const nd=new THREE.Vector2(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
+  ray.setFromCamera(nd,cam);
+  if(playMode){
+    const hit=ray.intersectObject(board)[0];
+    if(hit){
+      const i=Math.round((hit.point.x-BX0)/CELL), j=Math.round((hit.point.z-BZ0)/CELL);
+      if(Math.abs(hit.point.x-(BX0+i*CELL))<CELL*.45&&Math.abs(hit.point.z-(BZ0+j*CELL))<CELL*.45)
+        pClickGrid(i,j);
+    }
+    return;
+  }
+  const hit=ray.intersectObject(ground)[0];
+  if(hit){target.copy(hit.point);target.y=0;
+    const d=target.length();
+    if(d>70)target.multiplyScalar(70/d);
+    moving=true;}
+});
+const COLLIDERS=[
+  {x:20,z:4,r:6.6},{x:-21,z:8,r:5.8},
+  {x:-13,z:-30,r:3.6},{x:-8,z:-38,r:2.4},{x:14,z:-32,r:3.2},{x:8,z:-40,r:2.6},{x:-26,z:-18,r:2.8},{x:26,z:-16,r:3},
+  {x:-10,z:5,r:2.5},{x:-14,z:2,r:1.9},
+  {x:0,z:-62,r:16},
+  {x:-16.1,z:-12.3,r:1.3},{x:-21.9,z:-3.7,r:1.3}
+];
+function collide(){
+  for(const c of COLLIDERS){
+    const dx=player.position.x-c.x,dz=player.position.z-c.z;
+    const d=Math.hypot(dx,dz),min=c.r+.55;
+    if(d<min&&d>1e-4){
+      const f=min/d;
+      player.position.x=c.x+dx*f;player.position.z=c.z+dz*f;
+      if(moving&&Math.hypot(target.x-player.position.x,target.z-player.position.z)<1.2)moving=false;
+    }
+  }
+  const dd=Math.hypot(player.position.x,player.position.z);
+  if(dd>72){player.position.x*=72/dd;player.position.z*=72/dd;}
+}
+
+let t0=performance.now(),walkT=0;
+const camPos=new THREE.Vector3(0,4.4,26);
+function step(now){
+  const dt=Math.min(.05,(now-t0)/1000);t0=now;
+  let keyMove=false;
+  if(!playMode){
+    if(keys.ArrowLeft||keys.a||keys.A)camYaw+=1.9*dt;
+    if(keys.ArrowRight||keys.d||keys.D)camYaw-=1.9*dt;
+    let fw=0;
+    if(keys.ArrowUp||keys.w||keys.W)fw=1;
+    else if(keys.ArrowDown||keys.s||keys.S)fw=-.7;
+    if(fw){
+      keyMove=true;moving=false;
+      const dx=-Math.sin(camYaw)*fw,dz=-Math.cos(camYaw)*fw;
+      player.position.x+=dx*6.2*dt;player.position.z+=dz*6.2*dt;
+      player.rotation.y=THREE.MathUtils.lerp(player.rotation.y,Math.atan2(dx,dz),.2);
+      walkT+=dt*11;player.position.y=Math.abs(Math.sin(walkT))*.16;
+    }
+  }
+  if(moving&&!keyMove){
+    const dir=new THREE.Vector3().subVectors(target,player.position);dir.y=0;
+    const d=dir.length();
+    if(d<.15)moving=false;
+    else{
+      dir.normalize();
+      player.position.addScaledVector(dir,Math.min(d,6.5*dt));
+      player.rotation.y=THREE.MathUtils.lerp(player.rotation.y,Math.atan2(dir.x,dir.z),.15);
+      walkT+=dt*11;
+      player.position.y=Math.abs(Math.sin(walkT))*.16;
+    }
+  } else if(!keyMove) player.position.y*=.85;
+  if(!playMode)collide();
+  const co=10.5,px=player.position.x,pz=player.position.z;
+  const want=playMode?new THREE.Vector3(0,15,-2.2)
+    :new THREE.Vector3(px+Math.sin(camYaw)*co,4.6,pz+Math.cos(camYaw)*co);
+  camPos.lerp(want,.09);
+  cam.position.copy(camPos);
+  const look=playMode?new THREE.Vector3(0,.7,-15.2)
+    :new THREE.Vector3(px-Math.sin(camYaw)*14,2.0,pz-Math.cos(camYaw)*14);
+  cam.lookAt(look);
+  for(const b of bubbles){b.position.y+=b.userData.v*dt;
+    if(b.position.y>26){b.position.y=2;b.position.x=(Math.random()-.5)*60;}}
+  statue.rotation.y=Math.sin(now*.0001)*.05;
+  miniT+=dt;if(miniT>.15){miniT=0;updMini();}
+  if(!playMode){
+    let z=null;
+    for(const zz of ZONES){if(player.position.distanceTo(zz.p)<zz.r){z=zz;break;}}
+    showZone(z);
+  }
+  renderer.render(scene,cam);
+}
+function tick(now){step(now);requestAnimationFrame(tick);}
+requestAnimationFrame(tick);
+setInterval(()=>{const n=performance.now();if(n-t0>200)step(n);},100);
+addEventListener('resize',()=>{
+  cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+const mapXY=(x,z)=>[50+x*(84/70), ((z+66)/84)*84+8];
+let miniT=0;
+function buildMini(){
+  const m=document.getElementById('mini');if(!m)return;
+  m.innerHTML='<span id="mrab"></span>';
+  let nextName=null;
+  ZONES.forEach(z=>{
+    const d=document.createElement('span');d.className='mdot lock';
+    if(z.built){
+      const s=z.stat();
+      if(s.done>=s.tot&&s.tot>0)d.className='mdot done';
+      else if(z.open()&&!nextName){d.className='mdot next';nextName=(z.name.replace(/^[^ ]+ /,''));}
+    }
+    const[mx,my]=mapXY(z.p.x,z.p.z);
+    d.style.left=mx+'%';d.style.top=my+'%';
+    m.appendChild(d);
+  });
+  document.getElementById('mnext').textContent=nextName?('下一站 · '+nextName):'全部通关！去见兔祖师🐰';
+}
+buildMini();
+function updMini(){
+  const r=document.getElementById('mrab');if(!r)return;
+  const[mx,my]=mapXY(player.position.x,player.position.z);
+  r.style.left=Math.max(4,Math.min(96,mx))+'%';r.style.top=Math.max(4,Math.min(96,my))+'%';
+}
+window.__w3_setyaw=v=>{camYaw=v;};
+window.__w3={pos:()=>player.position.toArray(),go:(x,z)=>{target.set(x,0,z);moving=true;},
+  tp:(x,z)=>{player.position.set(x,0,z);target.set(x,0,z);moving=false;camPos.set(x*.85,4.6,z+10.5);step(performance.now()+1);},
+  zone:()=>curZone?curZone.name:null,
+  startPlay:()=>window.__startPlay(),exitPlay:()=>window.__exitPlay(),
+  clickGrid:(i,j)=>pClickGrid(i,j),stepNow:()=>step(performance.now()+1),
+  pstate:()=>({playMode,pOver,pBusy,board:pg?pg.map(r=>r.join("")).join("|"):null,panel:zoneEl.textContent.replace(/\s+/g,' ').slice(0,80)})};
+</script>
+</body>
+</html>
