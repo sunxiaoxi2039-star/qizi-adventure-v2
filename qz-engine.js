@@ -437,7 +437,7 @@ function winButtons(){
 /* ---------- 开始关卡 ---------- */
 function start(lv){
   if(demoTok)demoTok.dead=true;
-  seqNo++;usedHint=false;rompOffer=false;
+  seqNo++;usedHint=false;rompOffer=false;sessSave(sessGet());
   cur=lv;const N=lv.size;
   B=Array.from({length:N},()=>Array(N).fill(0));
   (lv.stones||[]).forEach(([c,r,v])=>B[c][r]=v);
@@ -470,12 +470,26 @@ function start(lv){
 /* ---------- 演示模式 ---------- */
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let seqNo=0,usedHint=false,rompOffer=false;
-function sessWin(){
+function sessGet(){
   let s;try{s=JSON.parse(localStorage.getItem("qz2_sess"))||{};}catch(e){s={};}
-  if(!s.last||Date.now()-s.last>1800000)s={wins:0};
-  s.wins=(s.wins||0)+1;s.last=Date.now();
-  try{localStorage.setItem("qz2_sess",JSON.stringify(s));}catch(e){}
+  if(!s.last||Date.now()-s.last>1800000)s={wins:0,t0:Date.now()};
+  if(!s.t0)s.t0=Date.now();
+  return s;
+}
+function sessSave(s){s.last=Date.now();try{localStorage.setItem("qz2_sess",JSON.stringify(s));}catch(e){}}
+function sessWin(){
+  const s=sessGet();
+  s.wins=(s.wins||0)+1;
+  sessSave(s);
   return s.wins;
+}
+function moonDue(){
+  const s=sessGet();
+  const played=Date.now()-(s.t0||Date.now());
+  if(played<20*60000)return false;
+  if(s.moonAt&&Date.now()-s.moonAt<8*60000)return false;
+  s.moonAt=Date.now();sessSave(s);
+  return true;
 }
 function praiseState(){try{return JSON.parse(localStorage.getItem("qz2_praise"))||{recent:[],streak:0};}catch(e){return{recent:[],streak:0};}}
 function savePraise(st){try{localStorage.setItem("qz2_praise",JSON.stringify(st));}catch(e){}}
@@ -582,10 +596,24 @@ async function winSequence(text,vo){
   if(elapsed<2600)await wait(2600-elapsed);
   if(dead())return;
   const wins=(!pvp&&!freeplay())?sessWin():0;
-  rompOffer=wins>0&&wins%3===0;
+  const moon=(!pvp&&!freeplay())&&moonDue();
+  rompOffer=!moon&&wins>0&&wins%3===0;
   winButtons();
+  if(moon){
+    const a=[...$("btns").querySelectorAll("button")];
+    const x=document.createElement("button");
+    x.className="big goldbtn";x.textContent="今天到这里";
+    x.onclick=async()=>{sayId("mn_bye1");$("btns").innerHTML="";await wait(1500);show("world");};
+    $("btns").appendChild(x);
+  }
   bb.style.opacity="";
-  if(rompOffer){await wait(350);if(!dead())sayId("rp_go1");}
+  if(moon){
+    await wait(350);
+    if(!dead()){
+      msg("今天下了好多棋，眼睛想休息啦。今天拿到 "+starCount()+" 颗星！",false);
+      sayId("mn_time1");
+    }
+  }else if(rompOffer){await wait(350);if(!dead())sayId("rp_go1");}
 }
 function delayedButtons(ms){
   const mySeq=seqNo,myKey=cur?cur.key:null;
@@ -1017,6 +1045,7 @@ function parentHTML(){
   <h3>🎯 30 秒了解这个游戏</h3>
   <div class="gloss"><b>学围棋，更学会思考和面对挫折</b><br>• 夸努力不夸聪明，养成长型思维<br>• 把失败变成再试一次的勇气<br>• 棋里藏着团结与保护自己的道理<br><span style="color:#999">白瓷兔子的世界中央，躺着一张大棋盘；每颗棋子都会呼吸，等你来当它的朋友。</span></div>
   <h3>📅 今天是第 ${dayIdx} / 90 天（启蒙期）</h3>
+  <div class="gloss">⏱ 本次已玩约 ${Math.max(0,Math.round((Date.now()-(sessGet().t0||Date.now()))/60000))} 分钟 · 满 20 分钟糯糯会温柔提醒休息（不强制锁定）</div>
   <div class="task"><input type="checkbox" id="t0" ${tk[0]?"checked":""}> 看动画《小喵小汪学围棋》第 ${EP} 集（B站搜索，约15分钟）</div>
   <div class="task"><input type="checkbox" id="t1" ${tk[1]?"checked":""}> 棋子大冒险闯关 1–2 关（约15分钟）</div>
   <div class="task"><input type="checkbox" id="t2" ${tk[2]?"checked":""}> ${isWeekend?"COSUMI 5路实战 1盘：<a href='https://playgo.to/cn' target='_blank'>playgo.to/cn</a>":"和孩子下一盘吃子棋（勇士谷·家人模式）"}</div>
