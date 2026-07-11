@@ -134,6 +134,34 @@
     75%  { transform:translate(24px,78vh) rotate(400deg); }
     100% { transform:translate(-14px,106vh) rotate(520deg); opacity:.25; }
   }
+  /* ===== 伪3D HUD 物料(ui_kit 同窑;背景色为图片 404 兜底) ===== */
+  .pill { background-color:var(--porc);
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");
+    background-size:100% 100%; background-repeat:no-repeat;
+    border:none; box-shadow:0 3px 8px rgba(120,80,20,.10); min-height:38px; }
+  .pill.icon { width:44px; height:44px; padding:0; background-image:none; border-radius:50%;
+    background-size:contain; background-position:center;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; color:#7a5a2a;
+    box-shadow:none; filter:drop-shadow(0 2px 3px rgba(120,80,20,.14)); }
+  #sndBtn { background-image:url("assets/ui/final/hud_sound.png?v=1"); }
+  #sndBtn.muted { filter:grayscale(1) opacity(.55); }
+  #langBtn { background-image:url("assets/ui/final/hud_lang.png?v=1"); padding-top:3px; }
+  #parentBtn { background-image:url("assets/ui/final/hud_parent.png?v=1"); }
+  #stars { display:inline-flex; align-items:center; gap:5px; }
+  #stars::before { content:""; width:20px; height:20px; flex:none;
+    background:url("assets/ui/final/star_gold.png?v=1") center/contain no-repeat; }
+  .big { background-color:var(--sage);
+    background-image:url("assets/ui/final/capsule_green.png?v=1");
+    background-size:100% 100%; background-repeat:no-repeat;
+    border:none; box-shadow:0 4px 10px rgba(94,158,98,.22);
+    text-shadow:0 1px 2px rgba(60,90,60,.35); padding:12px 28px; }
+  .big.alt, .big.gray, .big.blue { background-color:var(--porc);
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");
+    color:#8a6a3a; text-shadow:none; box-shadow:0 3px 8px rgba(120,80,20,.10); }
+  .big.goldbtn { background-color:var(--gold);
+    background-image:url("assets/ui/final/capsule_gold.png?v=1");
+    color:#7a5a16; text-shadow:none; box-shadow:0 4px 10px rgba(217,169,78,.25); }
   /* 云上棋路(素材版地图) */
   .qzSeam { position:absolute; left:0; right:0; top:-34px; height:68px; pointer-events:none; z-index:2;
     background:
@@ -216,10 +244,10 @@ if(location.protocol!=='file:'&&!/[?#&]stay/.test(location.search+location.hash)
   <div class="ttl" id="ttl">🐰 棋子大冒险</div>
   <div style="display:flex;gap:7px">
     <button class="pill" id="worldBtn" style="display:none">🌿 看风景</button>
-    <button class="pill" id="stars">⭐ 0</button>
-    <button class="pill" id="sndBtn">🔊</button>
-    <button class="pill" id="langBtn" title="语音语言">🗣 中</button>
-    <button class="pill" id="parentBtn">👪</button>
+    <button class="pill" id="stars">0</button>
+    <button class="pill icon" id="sndBtn" title="声音"></button>
+    <button class="pill icon" id="langBtn" title="语音语言">中</button>
+    <button class="pill icon" id="parentBtn" title="家长"></button>
   </div>
 </header>
 <main>
@@ -260,8 +288,8 @@ if(location.protocol!=='file:'&&!/[?#&]stay/.test(location.search+location.hash)
 <script src="levels5k.js?v=2"></script>
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
-<script src="assets/voice/manifest.js?v=11"></script>
-<script src="qz-engine.js?v=2"></script>
+<script src="assets/voice/manifest.js?v=12"></script>
+<script src="qz-engine.js?v=3"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=3" onerror="this.remove()"></script>
 </body>

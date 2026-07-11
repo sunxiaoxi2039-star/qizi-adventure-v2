@@ -7,10 +7,23 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif;user-select:none;}
-  #app{position:fixed;inset:0;}
+  #app{position:fixed;inset:0;touch-action:none;} /* 锁死浏览器手势,双指捏合才能进 3D */
+  #app canvas{touch-action:none;}
   canvas{display:block;}
+  @media(max-width:560px){
+    #hint{top:auto!important;bottom:126px;font-size:11px;max-width:72vw;white-space:normal;text-align:center;line-height:1.5;}
+    #hud{font-size:12px;padding:6px 10px;}
+    #back{font-size:13px;padding:8px 12px;}
+  }
   #hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.82);
     color:#4a5a6a;font-size:14px;font-weight:600;padding:8px 18px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;}
+  #zone button{background-color:#77B77A!important;background-image:url("assets/ui/final/capsule_green.png?v=1")!important;
+    background-size:100% 100%!important;background-repeat:no-repeat!important;border:none!important;
+    color:#fff;text-shadow:0 1px 2px rgba(60,90,60,.35);font-weight:800;border-radius:999px;
+    padding:10px 20px;margin-top:6px;cursor:pointer;}
+  #zone button[style*="F2C76E"],#zone button[style*="bba98c"],#zone button[style*="E8924A"]{
+    background-image:url("assets/ui/final/capsule_gold.png?v=1")!important;background-color:#F2C76E!important;
+    color:#7a5a16!important;text-shadow:none;}
   #zone{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(255,255,255,.94);
     border-radius:18px;padding:12px 20px;font-size:15px;color:#3a4a5a;box-shadow:0 4px 18px rgba(0,0,0,.12);
     display:none;text-align:center;max-width:86vw;line-height:1.6;}
@@ -22,18 +35,28 @@
     background:radial-gradient(ellipse at 35% 35%,#FFE9C9 0%,#F2C76E 60%,#D9A94E 100%);
     pointer-events:none;z-index:80;animation:ppf .85s ease-out forwards;}
   @keyframes ppf{to{transform:translate(var(--dx),var(--dy)) rotate(240deg);opacity:0;}}
-  #back{position:fixed;left:14px;top:14px;border:none;background:rgba(255,255,255,.82);color:#4a5a6a;
-    font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08);}
-  #hud{position:fixed;right:14px;top:14px;background:rgba(255,255,255,.82);color:#4a5a6a;font-size:14px;font-weight:700;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
-  #volBtn{position:fixed;right:14px;top:56px;border:none;background:rgba(255,255,255,.82);font-size:15px;
-    padding:7px 12px;border-radius:999px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  #back{position:fixed;left:14px;top:14px;border:none;background-color:#FBF9F4;color:#7a5a2a;
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");background-size:100% 100%;background-repeat:no-repeat;
+    font-size:14px;font-weight:800;padding:10px 18px;border-radius:999px;cursor:pointer;
+    box-shadow:0 3px 8px rgba(120,80,20,.12);}
+  #hud{position:fixed;right:14px;top:14px;background-color:#FBF9F4;color:#a9772a;font-size:14px;font-weight:800;
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");background-size:100% 100%;background-repeat:no-repeat;
+    padding:10px 16px;border-radius:999px;box-shadow:0 3px 8px rgba(120,80,20,.12);
+    display:flex;align-items:center;gap:5px;}
+  #hud::before{content:"";width:18px;height:18px;flex:none;
+    background:url("assets/ui/final/star_gold.png?v=1") center/contain no-repeat;}
+  #volBtn{position:fixed;right:14px;top:60px;border:none;width:42px;height:42px;font-size:0;
+    background:url("assets/ui/final/hud_sound.png?v=1") center/contain no-repeat;
+    cursor:pointer;filter:drop-shadow(0 2px 3px rgba(120,80,20,.14));padding:0;}
   #vol{position:fixed;right:14px;top:98px;background:rgba(255,255,255,.94);border-radius:16px;padding:12px 14px;
     box-shadow:0 4px 18px rgba(0,0,0,.12);display:none;font-size:13px;color:#4a5a6a;}
   #vol label{display:flex;align-items:center;gap:8px;margin:6px 0;}
   #vol input{width:110px;}
   #mini{position:fixed;left:14px;bottom:14px;width:150px;height:96px;background:rgba(255,255,255,.78);
     border-radius:18px;box-shadow:0 2px 12px rgba(0,0,0,.10);backdrop-filter:blur(4px);cursor:pointer;}
-  .mdot{position:absolute;width:11px;height:11px;border-radius:50%;transform:translate(-50%,-50%);}
+  .mdot{position:absolute;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);
+    cursor:pointer;box-shadow:0 1px 3px rgba(120,90,40,.25);}
+  .mdot::after{content:"";position:absolute;inset:-8px;border-radius:50%;} /* 手机手指热区 */
   .mdot.done{background:#7CC08F;}
   .mdot.next{background:#F5B942;box-shadow:0 0 0 3px rgba(245,185,66,.3);animation:pp 1.6s infinite;}
   .mdot.lock{background:#D9D6CF;}
@@ -210,6 +233,34 @@
     75%  { transform:translate(24px,78vh) rotate(400deg); }
     100% { transform:translate(-14px,106vh) rotate(520deg); opacity:.25; }
   }
+  /* ===== 伪3D HUD 物料(ui_kit 同窑;背景色为图片 404 兜底) ===== */
+  .pill { background-color:var(--porc);
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");
+    background-size:100% 100%; background-repeat:no-repeat;
+    border:none; box-shadow:0 3px 8px rgba(120,80,20,.10); min-height:38px; }
+  .pill.icon { width:44px; height:44px; padding:0; background-image:none; border-radius:50%;
+    background-size:contain; background-position:center;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; color:#7a5a2a;
+    box-shadow:none; filter:drop-shadow(0 2px 3px rgba(120,80,20,.14)); }
+  #sndBtn { background-image:url("assets/ui/final/hud_sound.png?v=1"); }
+  #sndBtn.muted { filter:grayscale(1) opacity(.55); }
+  #langBtn { background-image:url("assets/ui/final/hud_lang.png?v=1"); padding-top:3px; }
+  #parentBtn { background-image:url("assets/ui/final/hud_parent.png?v=1"); }
+  #stars { display:inline-flex; align-items:center; gap:5px; }
+  #stars::before { content:""; width:20px; height:20px; flex:none;
+    background:url("assets/ui/final/star_gold.png?v=1") center/contain no-repeat; }
+  .big { background-color:var(--sage);
+    background-image:url("assets/ui/final/capsule_green.png?v=1");
+    background-size:100% 100%; background-repeat:no-repeat;
+    border:none; box-shadow:0 4px 10px rgba(94,158,98,.22);
+    text-shadow:0 1px 2px rgba(60,90,60,.35); padding:12px 28px; }
+  .big.alt, .big.gray, .big.blue { background-color:var(--porc);
+    background-image:url("assets/ui/final/pill_cloud.png?v=1");
+    color:#8a6a3a; text-shadow:none; box-shadow:0 3px 8px rgba(120,80,20,.10); }
+  .big.goldbtn { background-color:var(--gold);
+    background-image:url("assets/ui/final/capsule_gold.png?v=1");
+    color:#7a5a16; text-shadow:none; box-shadow:0 4px 10px rgba(217,169,78,.25); }
   /* 云上棋路(素材版地图) */
   .qzSeam { position:absolute; left:0; right:0; top:-34px; height:68px; pointer-events:none; z-index:2;
     background:
@@ -295,10 +346,10 @@
   <div class="ttl" id="ttl">🐰 棋子大冒险</div>
   <div style="display:flex;gap:7px">
     <button class="pill" id="worldBtn" style="display:none">🌿 看风景</button>
-    <button class="pill" id="stars">⭐ 0</button>
-    <button class="pill" id="sndBtn">🔊</button>
-    <button class="pill" id="langBtn" title="语音语言">🗣 中</button>
-    <button class="pill" id="parentBtn">👪</button>
+    <button class="pill" id="stars">0</button>
+    <button class="pill icon" id="sndBtn" title="声音"></button>
+    <button class="pill icon" id="langBtn" title="语音语言">中</button>
+    <button class="pill icon" id="parentBtn" title="家长"></button>
   </div>
 </header>
 <main>
@@ -340,9 +391,9 @@
 <script src="levels5k.js?v=2"></script>
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
-<script src="assets/voice/manifest.js?v=11"></script>
+<script src="assets/voice/manifest.js?v=12"></script>
 <script>window.QZ_EMBED=true;</script>
-<script src="qz-engine.js?v=2"></script>
+<script src="qz-engine.js?v=3"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=3" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
@@ -423,7 +474,37 @@ let actx=null,ambGain=null;
 function saveCfg(){localStorage.setItem('qz3_vol',JSON.stringify(CFG));}
 $('vVoice').oninput=e=>{CFG.voice=e.target.value/100;saveCfg();};
 try{$('vLang').value=localStorage.getItem('qz_lang')||'zh';}catch(e){}
-$('vLang').onchange=e=>{try{localStorage.setItem('qz_lang',e.target.value);}catch(err){}};
+$('vLang').onchange=e=>{try{localStorage.setItem('qz_lang',e.target.value);}catch(err){}
+  if(window.__applyLang)__applyLang();};
+/* ===== 世界层文字三语:短语字典(zh 键)+ tt() ===== */
+const QLANG=()=>{try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}};
+const T3={
+ "气球村":{en:"Balloon Village",de:"Ballondorf"},
+ "点心客厅":{en:"Snack Parlor",de:"Snack-Salon"},
+ "生命之泉":{en:"Spring of Life",de:"Lebensquelle"},
+ "对杀谷":{en:"Duel Valley",de:"Wettkampftal"},
+ "兔祖师圣殿":{en:"Master Rabbit Temple",de:"Hasenmeister-Tempel"},
+ "试炼浮岛":{en:"Floating Isles",de:"Prüfungsinseln"},
+ "天空城":{en:"Sky City",de:"Himmelsstadt"},
+ "回白瓷广场":{en:"Back to Plaza",de:"Zurück zum Platz"},
+ "回试炼浮岛":{en:"Back to Isles",de:"Zurück zu den Inseln"},
+ "金环传送门":{en:"Golden Ring Portal",de:"Goldring-Portal"},
+ "🔒 还没解锁":{en:"🔒 Locked",de:"🔒 Gesperrt"},
+ "✅ 已通关":{en:"✅ Cleared",de:"✅ Geschafft"},
+ "⭐ 从这里开始":{en:"⭐ Start here",de:"⭐ Hier starten"},
+ "可以来玩":{en:"Come play",de:"Komm spielen"},
+ "📖 进入这一关":{en:"📖 Enter this stop",de:"📖 Station betreten"},
+ "🟫 大棋盘道场":{en:"🟫 Big Board Dojo",de:"🟫 Großes Brett-Dojo"},
+ "和糯糯下棋的地方":{en:"Play Go with Nuonuo",de:"Hier spielst du mit Nuonuo"},
+ "↑↓←→ 走路 · 拖动看风景 · 滚轮放大缩小":{en:"↑↓←→ walk · drag to look · pinch to zoom",de:"↑↓←→ laufen · ziehen zum Umschauen · Zoomen mit zwei Fingern"},
+ "点哪走哪 · 拖动看风景 · 双指缩放":{en:"Tap to walk · drag to look · pinch to zoom",de:"Tippen zum Laufen · ziehen zum Umschauen · Zoomen mit zwei Fingern"},
+ "📖 课程":{en:"📖 Lessons",de:"📖 Kurse"}
+};
+const tt=s=>{const l=QLANG();if(l==='zh')return s;const e=T3[s];return (e&&e[l])||s;};
+const ttStop=n=>{const l=QLANG();return l==='zh'?("第"+n+"关"):(l==='en'?("Stop "+n):("Station "+n));};
+/* 面板长句:复用 manifest 里的 tr 文本(和语音同源,一次录音两处用) */
+const ttLine=s=>{const l=QLANG();if(l==='zh')return s;
+  const line=VO3L&&VO3L[s];return (line&&line.tr&&line.tr[l]&&line.tr[l].text)||s;};
 $('vAmb').oninput=e=>{CFG.ambient=e.target.value/100;saveCfg();if(ambGain)ambGain.gain.value=CFG.ambient*.3;};
 $('vUi').oninput=e=>{CFG.ui=e.target.value/100;saveCfg();};
 function noiseBuf(ctx){
@@ -901,7 +982,7 @@ let grown=0;
 CHDEF.forEach((d,i)=>{if(chComplete(d)){grown++;
   const[gi,gj]=SPOTS[i];stone(BX0+gi*CELL,BZ0+gj*CELL,i%2===0,.58,true,achGroup);}});
 const totAll=rangeStats(0,CHDEF.length-1);
-$('hud').textContent="⭐ "+totAll.done+"/"+totAll.tot;
+$('hud').textContent=totAll.done+"/"+totAll.tot; /* 星icon由CSS ::before 出 */
 
 const HAS5K=!!(window.QK5&&QK5.chapters&&QK5.chapters.length>=3);
 function textSprite(lines,big){
@@ -936,7 +1017,7 @@ const STATIONS=[
   {x:22,z:4,name:"对杀谷",a:R_VAL[0],b:R_VAL[1],link:()=>"index.html?ch="+firstOpenCh(R_VAL[0],R_VAL[1]),
    pitch:"学『谁的气长谁赢』",open:()=>rangeComplete(R_SPR),tip:"先在生命之泉学会做活"},
   {x:44,z:4,name:"兔祖师圣殿",a:R_TMP[0],b:R_TMP[1],link:()=>"index.html?ch="+firstOpenCh(R_TMP[0],R_TMP[1]),
-   pitch:"学金角银边的大智慧,再走段位阶梯",open:()=>rangeComplete(R_VAL),tip:"先穿过对杀谷"},
+   pitch:"学金角银边的大智慧，再走段位阶梯",open:()=>rangeComplete(R_VAL),tip:"先穿过对杀谷"},
   {x:-138,z:-34,name:"试炼浮岛",a:R_DAN[0],b:R_DAN[1],link:()=>"index.html?ch="+firstOpenCh(R_DAN[0],R_DAN[1]),
    pitch:"云上的段位阶梯——一段到五段的试炼",open:()=>rangeComplete(R_TMP),tip:"先在兔祖师圣殿毕业"},
   {x:138,z:-34,name:"天空城",a:R_SKY[0],b:R_SKY[1],link:()=>"index.html?ch="+firstOpenCh(R_SKY[0],R_SKY[1]),
@@ -967,7 +1048,7 @@ function refreshStations(){
     const s=stat(i);
     const state=!st.open()?"🔒 还没解锁":(s.done>=s.tot?"✅ 已通关":(i===currentIdx?"⭐ 从这里开始":"可以来玩"));
     if(stLabels[i]){scene.remove(stLabels[i]);}
-    const label=textSprite(["第"+(i+1)+"关 · "+st.name,state],i===currentIdx);
+    const label=textSprite([ttStop(i+1)+" · "+tt(st.name),tt(state)],i===currentIdx);
     label.position.set(st.x,5.6,st.z);scene.add(label);stLabels[i]=label;
   });
   if(goldRing)goldRing.position.set(STATIONS[currentIdx].x,.06,STATIONS[currentIdx].z);
@@ -981,7 +1062,7 @@ STATIONS.forEach((st,i)=>{
   SWAP.stations.push({x:st.x,z:st.z,parts:[yurt,door]});
   const s=stat(i);
   const state=!st.open()?"🔒 还没解锁":(s.done>=s.tot?"✅ 已通关":(i===currentIdx?"⭐ 从这里开始":"可以来玩"));
-  const label=textSprite(["第"+(i+1)+"关 · "+st.name,state],i===currentIdx);
+  const label=textSprite([ttStop(i+1)+" · "+tt(st.name),tt(state)],i===currentIdx);
   label.position.set(st.x,5.6,st.z);scene.add(label);stLabels[i]=label;
   const guide=new THREE.Group();guide.add(bunnyGLB(.95));
   guide.position.set(st.x+2.7,0,st.z+3.6);
@@ -1005,8 +1086,13 @@ for(let k=1;k<5;k++){
   const p=new THREE.Mesh(new THREE.CylinderGeometry(.75,.75,.09,14),PATHM);
   p.position.set(0,.05,6-(k/5)*14);p.receiveShadow=true;scene.add(p);
 }
-const dojoLabel=textSprite(["🟫 大棋盘道场","和糯糯下棋的地方"]);
-dojoLabel.position.set(0,4.6,-16);scene.add(dojoLabel);
+let dojoLabel=null;
+function buildDojoLabel(){
+  if(dojoLabel)scene.remove(dojoLabel);
+  dojoLabel=textSprite([tt("🟫 大棋盘道场"),tt("和糯糯下棋的地方")]);
+  dojoLabel.position.set(0,4.6,-16);scene.add(dojoLabel);
+}
+buildDojoLabel();
 
 /* ===== P4 云上分区:试炼浮岛(x≈-138)与天空城(x≈+138)。雾距(140)外互不可见,金环传送门连通 ===== */
 let tpCool=0;
@@ -1022,9 +1108,9 @@ function makePortal(x,z,dest,name,openFn,tip,line){
   [-2.5,2.5].forEach(dx=>{const c=new THREE.Mesh(new THREE.SphereGeometry(1.05,18,12),WHITE);
     c.position.set(dx,.15,0);c.scale.y=.6;c.receiveShadow=true;grp.add(c);});
   grp.position.set(x,0,z);scene.add(grp);
-  const label=textSprite([name,"金环传送门"],false);
+  const label=textSprite([tt(name),tt("金环传送门")],false);
   label.position.set(x,6.2,z);scene.add(label);
-  PORTALS.push({x,z,dest,name,open:openFn,tip,line,ring,glow,grp});
+  PORTALS.push({x,z,dest,name,open:openFn,tip,line,ring,glow,grp,label});
 }
 function cloudZone(cx,cz){
   const disc=new THREE.Mesh(new THREE.CylinderGeometry(26,23,1.4,56),WHITE2);
@@ -1073,10 +1159,10 @@ loadProp('palace',()=>{
   const inst=propInstance('palace',16);
   if(inst){palacePH.clear();palacePH.add(inst);}
 });
-makePortal(56,-2,[-138,-12],"试炼浮岛",()=>rangeComplete(R_TMP),"先在兔祖师圣殿毕业","呼——穿过金环,云上的试炼浮岛到啦!");
-makePortal(-124,-12,[52,4],"回白瓷广场",()=>true,"","回到白瓷广场啦!");
-makePortal(-152,-12,[138,-12],"天空城",()=>rangeComplete(R_DAN),"先走完段位阶梯","哇——最高的天空城,欢迎你!");
-makePortal(124,-12,[-138,-12],"回试炼浮岛",()=>true,"","回到试炼浮岛啦!");
+makePortal(56,-2,[-138,-12],"试炼浮岛",()=>rangeComplete(R_TMP),"先在兔祖师圣殿毕业","呼——穿过金环，云上的试炼浮岛到啦！");
+makePortal(-124,-12,[52,4],"回白瓷广场",()=>true,"","回到白瓷广场啦！");
+makePortal(-152,-12,[138,-12],"天空城",()=>rangeComplete(R_DAN),"先走完段位阶梯","哇——最高的天空城，欢迎你！");
+makePortal(124,-12,[-138,-12],"回试炼浮岛",()=>true,"","回到试炼浮岛啦！");
 
 const COLLIDERS=[];
 const TREES=[[-52,8,4.4],[-33,-8,3.6],[33,-10,3.8],[52,10,4.6],[-14,14,3],[14,16,3.2],[-62,-10,3.4],[62,-8,3.6]];
@@ -1193,8 +1279,8 @@ function stationPanel(i){
   else if(s.done>=s.tot)line="第"+(i+1)+"关你已经全部通关啦，真棒！去下一关找我的兄弟吧！";
   else if(i===currentIdx)line="这里是第"+(i+1)+"关·"+st.name+"！"+st.pitch+"。现在的你正合适，就从这里开始吧！";
   else line="这里是第"+(i+1)+"关·"+st.name+"。"+st.pitch+"。";
-  let html='<b>第'+(i+1)+'关 · '+st.name+'</b><br>'+line+'<br>⭐ 进度 '+s.done+' / '+s.tot;
-  if(st.open())html+='<br><button onclick="__goCourse(\''+st.link()+'\')">📖 进入这一关</button>';
+  let html='<b>'+ttStop(i+1)+' · '+tt(st.name)+'</b><br>'+ttLine(line)+'<br>⭐ '+s.done+' / '+s.tot;
+  if(st.open())html+='<br><button onclick="__goCourse(\''+st.link()+'\')">'+tt("📖 进入这一关")+'</button>';
   const now=performance.now();
   if(!guideCool[i]||now-guideCool[i]>30000){guideCool[i]=now;say3(line);}
   return html;
@@ -1206,8 +1292,9 @@ function dojoPanel(){
 }
 function showZoneHtml(key,html){
   if(curZone===key)return;curZone=key;
-  if(!html){zoneEl.style.display='none';return;}
+  if(!html){zoneEl.style.display='none';$('hint').style.opacity='';return;}
   zoneEl.innerHTML=html;zoneEl.style.display='block';
+  $('hint').style.opacity='0'; // 面板在时提示条让路(手机端两者同在底部)
 }
 
 let playMode=false,pOver=false,pBusy=false,pg=null;
@@ -1436,6 +1523,12 @@ renderer.domElement.addEventListener('pointerup',ptUp);
 renderer.domElement.addEventListener('pointercancel',ptUp);
 // 站点建筑:1-4=山洞房子(模型缩放5.4,实心半径≈4.0),5=灯塔(缩放8.5,半径≈4.6)——半径匹配可见模型,兔子不再戳进墙
 STATIONS.forEach((st,i)=>COLLIDERS.push({x:st.x,z:st.z,r:i===4?4.6:4.0}));
+/* 镜头栓块:相机吊臂不许钻进这些体积(圆柱近似,防穿屋檐) */
+const CAM_BLOCKERS=[];
+STATIONS.forEach((st,i)=>CAM_BLOCKERS.push({x:st.x,z:st.z,r:4.8,h:i===4?11:5.4}));
+TREES.forEach(([x,z,h])=>CAM_BLOCKERS.push({x,z,r:1.7,h:h*.95})); // 树冠糊脸也要闪开
+CAM_BLOCKERS.push({x:0,z:-64,r:17,h:13});   // 圣殿雕像
+CAM_BLOCKERS.push({x:138,z:-48,r:11,h:17}); // 天空城宫殿
 COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
 COLLIDERS.push({x:8,z:10,r:.8});            // 熊猫村民
 COLLIDERS.push({x:-30,z:-18,r:.8});
@@ -1522,6 +1615,20 @@ function step(now){
   }else{
     want=new THREE.Vector3(player.position.x+Math.sin(camYaw)*camDist,hh,player.position.z+Math.cos(camYaw)*camDist);
     look=new THREE.Vector3(player.position.x-Math.sin(camYaw)*14,1.8,player.position.z-Math.cos(camYaw)*14);
+    /* 防穿屋檐:玩家头顶→相机连线撞进建筑体,就把吊臂截短(采样法) */
+    {
+      const hx=player.position.x,hy=1.6,hz=player.position.z;
+      let cut=1;
+      outer:for(let s=.28;s<=1;s+=.08){
+        const x=hx+(want.x-hx)*s,y=hy+(want.y-hy)*s,z=hz+(want.z-hz)*s;
+        for(const b of CAM_BLOCKERS){
+          if(y<b.h&&Math.hypot(x-b.x,z-b.z)<b.r){cut=Math.max(.24,s-.1);break outer;}
+        }
+      }
+      if(cut<1){
+        want.set(hx+(want.x-hx)*cut,Math.max(hy+1.4,hy+(want.y-hy)*cut),hz+(want.z-hz)*cut);
+      }
+    }
   }
   camPos.lerp(want,.09);
   cam.position.copy(camPos);
@@ -1598,6 +1705,15 @@ addEventListener('resize',()=>{
 });
 
 const mapXY=(x,z)=>[50+x*(46/50),((z+70)/92)*84+8];
+/* 小地图快速旅行:点已解锁的车站点,兔兔嗖一下过去 */
+function miniTravel(i){
+  const st=STATIONS[i];
+  if(!st.open()){say3("这里是第"+(i+1)+"关·"+st.name+"。还早一点哦——"+st.tip+"，学会了再来找我！");return;}
+  player.position.set(st.x,0,st.z+7);target.copy(player.position);moving=false;
+  camYaw=0;curZone=null;
+  window.__face&&__face('happy',1000);
+  say3("嗖——到站啦！");
+}
 function buildMini(){
   const m=$('mini');m.innerHTML='<span id="mrab"></span>';
   let nextName=null;
@@ -1606,17 +1722,34 @@ function buildMini(){
     const s=stat(i);
     if(st.open()){
       if(s.done>=s.tot)d.className='mdot done';
-      else if(!nextName){d.className='mdot next';nextName="第"+(i+1)+"关·"+st.name;}
+      else if(!nextName){d.className='mdot next';nextName=ttStop(i+1)+"·"+tt(st.name);}
     }
     const[mx,my]=mapXY(st.x,st.z);
-    d.style.left=Math.max(4,Math.min(96,mx))+'%';d.style.top=Math.max(4,Math.min(96,my))+'%';m.appendChild(d);
+    d.style.left=Math.max(4,Math.min(96,mx))+'%';d.style.top=Math.max(4,Math.min(96,my))+'%';
+    d.title="第"+(i+1)+"关 · "+st.name;
+    d.onclick=ev=>{ev.stopPropagation();miniTravel(i);};
+    m.appendChild(d);
   });
   const bd=document.createElement('span');bd.className='mdot done';bd.style.background='#C89A5B';
   const[bx,by]=mapXY(0,-16);bd.style.left=bx+'%';bd.style.top=by+'%';m.appendChild(bd);
-  $('mnext').textContent=nextName?('下一站 · '+nextName):'全部通关！去见兔祖师🐰';
+  {const _l=QLANG();
+  $('mnext').textContent=nextName?((_l==='zh'?'下一站 · ':_l==='en'?'Next · ':'Weiter · ')+nextName)
+    :(_l==='zh'?'全部通关！去见兔祖师🐰':_l==='en'?'All cleared! Visit Master Rabbit 🐰':'Alles geschafft! Besuch den Hasenmeister 🐰');}
 }
 buildMini();
 $('mini').onclick=()=>{resetHome();say3("回到出发点啦！");};
+window.__applyLang=function(){
+  try{
+    const coarse=matchMedia&&matchMedia('(pointer:coarse)').matches;
+    $('hint').textContent=tt(coarse?"点哪走哪 · 拖动看风景 · 双指缩放":"↑↓←→ 走路 · 拖动看风景 · 滚轮放大缩小");
+    $('back').textContent=tt("📖 课程");
+    refreshStations();buildDojoLabel();buildMini();
+    PORTALS.forEach(p=>{if(p.label)scene.remove(p.label);
+      p.label=textSprite([tt(p.name),tt("金环传送门")],false);
+      p.label.position.set(p.x,6.2,p.z);scene.add(p.label);});
+  }catch(e){}
+};
+__applyLang();
 function updMini(){
   const r=$('mrab');if(!r)return;
   const[mx,my]=mapXY(player.position.x,player.position.z);
@@ -1654,6 +1787,7 @@ window.__anim=()=>animBunnies.map((a,i)=>{
     eyesZ:ee?[ee[8],ee[10]].map(v=>+v.toFixed(2)):null};
 });
 window.__w3_setyaw=v=>{camYaw=v;};
+window.__say3=say3; // QA:语音匹配探针用
 window.__w3={pos:()=>player.position.toArray(),go:(x,z)=>{target.set(x,0,z);moving=true;},
   tp:(x,z)=>{player.position.set(x,0,z);target.set(x,0,z);moving=false;
     camPos.set(x+Math.sin(camYaw)*camDist,2.4+camDist*.3,z+Math.cos(camYaw)*camDist);step(performance.now()+1);},

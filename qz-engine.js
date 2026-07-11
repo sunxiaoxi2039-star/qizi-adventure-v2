@@ -301,7 +301,7 @@ function confetti(){
   }
 }
 const starCount=()=>Object.values(prog).filter(Boolean).length;
-const refreshStars=()=>$("stars").textContent="⭐ "+starCount();
+const refreshStars=()=>$("stars").textContent=starCount(); /* 星星图标由 CSS ::before 出(伪3D 物料) */
 function saveWin(){prog[cur.key]=true;localStorage.setItem(LSP,JSON.stringify(prog));refreshStars();}
 
 /* ---------- 地图 ---------- */
@@ -1031,10 +1031,10 @@ cv.addEventListener("pointerdown",e=>{
   handle(c,r);
 });
 $("backBtn").onclick=()=>{if(demoTok)demoTok.dead=true;show("map");};
-$("sndBtn").onclick=()=>{soundOn=!soundOn;$("sndBtn").textContent=soundOn?"🔊":"🔇";
+$("sndBtn").onclick=()=>{soundOn=!soundOn;$("sndBtn").classList.toggle("muted",!soundOn);
   if(!soundOn){try{speechSynthesis.cancel();}catch(e){}stopAmbient();}
   else if($("world").classList.contains("on"))startAmbient();};
-const LANG_LABEL={zh:"🗣 中",en:"🗣 EN",de:"🗣 DE"};
+const LANG_LABEL={zh:"中",en:"EN",de:"DE"}; /* 图标由 hud_lang 物料出 */
 function refreshLangBtn(){$("langBtn").textContent=LANG_LABEL[LANG]||"🗣 中";}
 $("langBtn").onclick=()=>{
   LANG=LANG==="zh"?"en":LANG==="en"?"de":"zh";
