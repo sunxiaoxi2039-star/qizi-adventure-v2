@@ -1253,7 +1253,9 @@ if(window.QZ_EMBED){
   /* 合并态:不自启,由 3D 世界经 window.QZ 召唤浮层 */
   window.QZ={
     openChapter(n){
-      const ci=Math.min(Math.max((+n||1)-1,0),CH.length-1);
+      /* n 优先按章节 id 解析(21/71 等稀疏 id),找不到才按 1 基序号 */
+      let ci=CH.findIndex(c=>c.id===+n);
+      if(ci<0)ci=Math.min(Math.max((+n||1)-1,0),CH.length-1);
       mapSel=ci;
       if(window.QZ_HOST)QZ_HOST.show();
       show("map");
@@ -1269,7 +1271,8 @@ if(window.QZ_EMBED){
   show("world");
   const chJump=new URLSearchParams(location.search).get("ch");
   if(chJump){
-    const ci=Math.min(Math.max((+chJump||1)-1,0),CH.length-1);
+    let ci=CH.findIndex(c=>c.id===+chJump);
+    if(ci<0)ci=Math.min(Math.max((+chJump||1)-1,0),CH.length-1);
     mapSel=ci;show("map");
   }
 }

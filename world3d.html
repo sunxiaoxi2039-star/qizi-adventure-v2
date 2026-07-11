@@ -342,7 +342,7 @@
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=11"></script>
 <script>window.QZ_EMBED=true;</script>
-<script src="qz-engine.js?v=1"></script>
+<script src="qz-engine.js?v=2"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=3" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
@@ -403,10 +403,13 @@ function undulate(x,z,r,h,mat){
   const m=new THREE.Mesh(new THREE.SphereGeometry(r,28,18),mat||WHITE);
   m.scale.y=h/r;m.position.set(x,0,z);m.receiveShadow=true;scene.add(m);return m;
 }
-undulate(-80,-95,50,7);undulate(78,-98,55,9);undulate(-100,-30,40,5);undulate(100,-16,45,6);
+undulate(-80,-95,50,7);undulate(78,-98,55,9);undulate(-88,-30,26,5);undulate(88,-16,28,6);
 undulate(-45,-125,60,14,WHITE2);undulate(48,-128,66,16,WHITE2);
+/* 云堤环:朝两个云上分区(±x,z≈-26)方向开窗,免得挡路挡视线 */
+const ZONE_ANGS=[Math.atan2(138,-26),Math.atan2(-138,-26)+Math.PI*2];
 for(let i=0;i<14;i++){
   const a=(i/14)*Math.PI*2+.22;
+  if(ZONE_ANGS.some(za=>Math.abs(((a-za)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI)<.62))continue;
   const r=96+((i*37)%3)*9;
   undulate(Math.sin(a)*r,Math.cos(a)*r,26+((i*53)%3)*10,9+((i*29)%3)*5,WHITE2);
 }
@@ -758,7 +761,7 @@ loadProp('cave',()=>{
   SWAP.stations.forEach((o,i)=>{
     if(i===4)return; // 圣殿等灯塔
     o.parts.forEach(p=>scene.remove(p));o.parts=[];
-    const inst=tintClone(propInstance('cave',5.4),STATION_TINT[i],.22);
+    const inst=tintClone(propInstance('cave',5.4),STATION_TINT[i%STATION_TINT.length],.22);
     inst.position.set(o.x,0,o.z);inst.rotation.y=(i%2?-.12:.12);scene.add(inst);
   });
   SWAP.deco.forEach(o=>{
@@ -843,11 +846,17 @@ const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(12,14,4,40),WHITE2);
 pedestal.position.set(0,1.8,-64);pedestal.receiveShadow=true;pedestal.castShadow=true;scene.add(pedestal);
 undulate(0,-64,24,6,WHITE2);
 
-const CHDEF=[[1,5,"气球村"],[2,5,"点心镇"],[3,5,"警报站"],[4,4,"双胞胎桥"],[5,4,"魔法学院"],[6,4,"勇士谷"],[7,6,"魔法塔"]];
-if(window.QK5){
-  if(QK5.extend7)CHDEF[6][1]+=QK5.extend7.length;
-  if(QK5.chapters)QK5.chapters.forEach(c=>CHDEF.push([c.id,c.levels.length,(c.name.split("·")[0]||"").trim()]));
-  if(window.QDEMOS)CHDEF.forEach(d=>{if(QDEMOS[d[0]])d[1]+=QDEMOS[d[0]].length;});
+/* 合并态:引擎在场时 CHDEF 直取全量课程表(34 章,含段位 71-75 与天空 82-84,QK5/QDAN/QDEMOS 引擎已合并);引擎缺席退回旧拼装 */
+let CHDEF;
+if(typeof CH!=="undefined"&&CH.length){
+  CHDEF=CH.map(c=>[c.id,c.levels.length,(c.name.split("·")[0]||c.name||"").trim()]);
+}else{
+  CHDEF=[[1,5,"气球村"],[2,5,"点心镇"],[3,5,"警报站"],[4,4,"双胞胎桥"],[5,4,"魔法学院"],[6,4,"勇士谷"],[7,6,"魔法塔"]];
+  if(window.QK5){
+    if(QK5.extend7)CHDEF[6][1]+=QK5.extend7.length;
+    if(QK5.chapters)QK5.chapters.forEach(c=>CHDEF.push([c.id,c.levels.length,(c.name.split("·")[0]||"").trim()]));
+    if(window.QDEMOS)CHDEF.forEach(d=>{if(QDEMOS[d[0]])d[1]+=QDEMOS[d[0]].length;});
+  }
 }
 let prog={};try{prog=JSON.parse(localStorage.getItem("qz2_prog"))||{};}catch(e){}
 const chKeys=d=>Array.from({length:d[1]},(_,i)=>"c"+d[0]+"l"+(i+1));
@@ -915,6 +924,7 @@ function idxRange(lo,hi){
 }
 const safeR=(r,fb)=>r[0]<0?[fb,fb]:r;
 const R_DIM=safeR(idxRange(7,29),6),R_SPR=safeR(idxRange(31,39),6),R_VAL=safeR(idxRange(41,49),6),R_TMP=safeR(idxRange(51,69),CHDEF.length-1);
+const R_DAN=safeR(idxRange(71,79),CHDEF.length-1),R_SKY=safeR(idxRange(81,89),CHDEF.length-1);
 const rangeComplete=([a,b])=>{for(let i=a;i<=b;i++)if(!chComplete(CHDEF[i]))return false;return true;};
 const STATIONS=[
   {x:-44,z:4,name:"气球村",a:0,b:4,link:()=>"index.html?ch="+firstOpenCh(0,4),
@@ -927,12 +937,16 @@ const STATIONS=[
    pitch:"学『谁的气长谁赢』",open:()=>rangeComplete(R_SPR),tip:"先在生命之泉学会做活"},
   {x:44,z:4,name:"兔祖师圣殿",a:R_TMP[0],b:R_TMP[1],link:()=>"index.html?ch="+firstOpenCh(R_TMP[0],R_TMP[1]),
    pitch:"学金角银边的大智慧,再走段位阶梯",open:()=>rangeComplete(R_VAL),tip:"先穿过对杀谷"},
+  {x:-138,z:-34,name:"试炼浮岛",a:R_DAN[0],b:R_DAN[1],link:()=>"index.html?ch="+firstOpenCh(R_DAN[0],R_DAN[1]),
+   pitch:"云上的段位阶梯——一段到五段的试炼",open:()=>rangeComplete(R_TMP),tip:"先在兔祖师圣殿毕业"},
+  {x:138,z:-34,name:"天空城",a:R_SKY[0],b:R_SKY[1],link:()=>"index.html?ch="+firstOpenCh(R_SKY[0],R_SKY[1]),
+   pitch:"最高的白瓷宫殿——大棋盘的星辰大海",open:()=>rangeComplete(R_DAN),tip:"先走完试炼浮岛的段位阶梯"},
 ];
 const stat=i=>rangeStats(STATIONS[i].a,STATIONS[i].b);
 let currentIdx=0;
-for(let i=0;i<5;i++){const s=stat(i);
+for(let i=0;i<STATIONS.length;i++){const s=stat(i);
   if(STATIONS[i].open()&&s.done<s.tot){currentIdx=i;break;}
-  if(i===4)currentIdx=4;
+  if(i===STATIONS.length-1)currentIdx=i;
 }
 const guides=[];
 const stLabels=[];
@@ -945,9 +959,9 @@ function dojoCredit(){
 }
 function refreshStations(){
   currentIdx=0;
-  for(let i=0;i<5;i++){const s=stat(i);
+  for(let i=0;i<STATIONS.length;i++){const s=stat(i);
     if(STATIONS[i].open()&&s.done<s.tot){currentIdx=i;break;}
-    if(i===4)currentIdx=4;
+    if(i===STATIONS.length-1)currentIdx=i;
   }
   STATIONS.forEach((st,i)=>{
     const s=stat(i);
@@ -993,6 +1007,76 @@ for(let k=1;k<5;k++){
 }
 const dojoLabel=textSprite(["🟫 大棋盘道场","和糯糯下棋的地方"]);
 dojoLabel.position.set(0,4.6,-16);scene.add(dojoLabel);
+
+/* ===== P4 云上分区:试炼浮岛(x≈-138)与天空城(x≈+138)。雾距(140)外互不可见,金环传送门连通 ===== */
+let tpCool=0;
+const PORTALS=[];
+function makePortal(x,z,dest,name,openFn,tip,line){
+  const grp=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(2.1,.26,14,44),
+    new THREE.MeshStandardMaterial({color:0xF2C76E,roughness:.55,emissive:0xC9952E,emissiveIntensity:.28}));
+  ring.position.y=2.6;grp.add(ring);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(1.8,32),
+    new THREE.MeshBasicMaterial({color:0xFFF3D6,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));
+  glow.position.y=2.6;grp.add(glow);
+  [-2.5,2.5].forEach(dx=>{const c=new THREE.Mesh(new THREE.SphereGeometry(1.05,18,12),WHITE);
+    c.position.set(dx,.15,0);c.scale.y=.6;c.receiveShadow=true;grp.add(c);});
+  grp.position.set(x,0,z);scene.add(grp);
+  const label=textSprite([name,"金环传送门"],false);
+  label.position.set(x,6.2,z);scene.add(label);
+  PORTALS.push({x,z,dest,name,open:openFn,tip,line,ring,glow,grp});
+}
+function cloudZone(cx,cz){
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(26,23,1.4,56),WHITE2);
+  disc.position.set(cx,-.6,cz);disc.receiveShadow=true;scene.add(disc); // 顶面 y=0.1,压过地皮
+  for(let a=0;a<16;a++){
+    const th=a/16*Math.PI*2,rr=25.5+(a%3);
+    const puff=new THREE.Mesh(new THREE.SphereGeometry(1.9+(a%4)*.45,18,12),WHITE);
+    puff.position.set(cx+Math.cos(th)*rr,-.45+(a%2)*.3,cz+Math.sin(th)*rr);
+    puff.scale.y=.55;puff.receiveShadow=true;scene.add(puff);
+  }
+}
+const FLOAT_DECOS=[];
+function floatIsle(x,y,z,s){
+  const g=new THREE.Group();
+  const top=new THREE.Mesh(new THREE.SphereGeometry(s,20,14),WHITE2);top.scale.y=.42;g.add(top);
+  const puff=new THREE.Mesh(new THREE.SphereGeometry(s*.72,16,12),WHITE);puff.position.y=-s*.36;puff.scale.y=.7;g.add(puff);
+  const tree=new THREE.Mesh(new THREE.SphereGeometry(s*.26,12,10),CE);tree.position.set(s*.3,s*.42,0);g.add(tree);
+  g.position.set(x,y,z);scene.add(g);
+  FLOAT_DECOS.push({g,y0:y,ph:Math.random()*6.28});
+  return g;
+}
+const ZONE_CENTERS=[[-138,-26],[138,-26]];
+cloudZone(-138,-26);cloudZone(138,-26);
+/* 悬浮装饰岛(占位软陶;prop_isle 到货热替换) */
+floatIsle(-160,7,-44,4.2);floatIsle(-116,9,-46,3.4);floatIsle(-158,11,-6,3.0);floatIsle(-120,6,-4,2.6);
+floatIsle(118,8,-46,3.8);floatIsle(160,11,-44,3.2);floatIsle(156,7,-6,2.8);
+/* 天空城宫殿占位:白瓷圆顶塔簇(prop_palace 到货热替换) */
+const palacePH=new THREE.Group();
+[[0,0,5.2,9],[-6,-2,3.6,6],[6,-2,3.8,6.4],[0,-6,3,5]].forEach(([dx,dz,r,h])=>{
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(r*.62,r*.72,h,22),WHITE);
+  t.position.set(dx,h/2,dz);t.castShadow=true;palacePH.add(t);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(r*.66,20,14,0,Math.PI*2,0,Math.PI/2),
+    new THREE.MeshStandardMaterial({color:0xF2C76E,roughness:.6}));
+  dome.position.set(dx,h,dz);palacePH.add(dome);
+});
+palacePH.position.set(138,0,-48);scene.add(palacePH);
+/* Tripo 真模型到货热替换(prop_isle/prop_palace.glb 缺文件时占位软陶常驻) */
+loadProp('isle',()=>{
+  FLOAT_DECOS.forEach((f,i)=>{
+    const h=[6.8,5.6,5.0,4.4,6.2,5.2,4.6][i%7];
+    const inst=propInstance('isle',h);if(!inst)return;
+    f.g.clear();inst.position.y=-h*.5;f.g.add(inst);
+  });
+});
+loadProp('palace',()=>{
+  const inst=propInstance('palace',16);
+  if(inst){palacePH.clear();palacePH.add(inst);}
+});
+makePortal(56,-2,[-138,-12],"试炼浮岛",()=>rangeComplete(R_TMP),"先在兔祖师圣殿毕业","呼——穿过金环,云上的试炼浮岛到啦!");
+makePortal(-124,-12,[52,4],"回白瓷广场",()=>true,"","回到白瓷广场啦!");
+makePortal(-152,-12,[138,-12],"天空城",()=>rangeComplete(R_DAN),"先走完段位阶梯","哇——最高的天空城,欢迎你!");
+makePortal(124,-12,[-138,-12],"回试炼浮岛",()=>true,"","回到试炼浮岛啦!");
 
 const COLLIDERS=[];
 const TREES=[[-52,8,4.4],[-33,-8,3.6],[33,-10,3.8],[52,10,4.6],[-14,14,3],[14,16,3.2],[-62,-10,3.4],[62,-8,3.6]];
@@ -1090,6 +1174,9 @@ window.__goCourse=u=>{
   }else location.href=u;
 };
 window.__openCourse=()=>__goCourse(STATIONS[currentIdx].link());
+window.__tp=(x,z)=>{ // QA:无参=读位置,有参=瞬移
+  if(x===undefined)return [Math.round(player.position.x*10)/10,Math.round(player.position.z*10)/10];
+  player.position.set(x,0,z);target.copy(player.position);moving=false;return [x,z];};
 window.QZ_HOST={
   show(){document.getElementById('qzApp').classList.add('on');},
   hide(){document.getElementById('qzApp').classList.remove('on');
@@ -1371,8 +1458,16 @@ function collide(){
       if(moving&&Math.hypot(target.x-player.position.x,target.z-player.position.z)<1.4)moving=false;
     }
   }
+  /* 复合栓绳:主岛 r76;云上分区各 r25(以最近分区计) */
   const dd=Math.hypot(player.position.x,player.position.z);
-  if(dd>76){player.position.x*=76/dd;player.position.z*=76/dd;}
+  if(dd>76){
+    let zc=null,zd=1e9;
+    for(const c of ZONE_CENTERS){const d=Math.hypot(player.position.x-c[0],player.position.z-c[1]);if(d<zd){zd=d;zc=c;}}
+    if(zc&&zd<=25){/* 在分区活动圈内 */}
+    else if(zc&&zd<=48){const f=25/zd;
+      player.position.x=zc[0]+(player.position.x-zc[0])*f;player.position.z=zc[1]+(player.position.z-zc[1])*f;}
+    else{player.position.x*=76/dd;player.position.z*=76/dd;}
+  }
   if(!isFinite(player.position.x)||!isFinite(player.position.z))resetHome();
 }
 
@@ -1464,12 +1559,33 @@ function step(now){
   miniT+=dt;if(miniT>.15){miniT=0;updMini();}
   if(!playMode&&!(ROMP.on&&ROMP.done)){
     let key=null,html=null;
-    for(let i=0;i<5;i++){
+    for(let i=0;i<STATIONS.length;i++){
       const st=STATIONS[i];
       if(Math.hypot(player.position.x-st.x,player.position.z-st.z)<6.5){key="st"+i;html=stationPanel(i);break;}
     }
     if(!key&&Math.hypot(player.position.x,player.position.z+16)<10){key="dojo";html=dojoPanel();}
     showZoneHtml(key,html);
+    /* 传送门:金环旋转 + 走近瞬移(带冷却);悬浮岛呼吸 */
+    for(const f of FLOAT_DECOS)f.g.position.y=f.y0+Math.sin(tS*.8+f.ph)*.5;
+    const nowP=performance.now();
+    for(const p of PORTALS){
+      p.ring.rotation.y+=dt*.7;
+      p.glow.material.opacity=.32+Math.sin(tS*2+p.x)*.1;
+      if(nowP<tpCool)continue;
+      if(Math.hypot(player.position.x-p.x,player.position.z-p.z)<2.4){
+        tpCool=nowP+2600;
+        if(!p.open()){
+          say3(p.tip+"，金环才会为你打开！");
+          const dx=player.position.x-p.x,dz=player.position.z-p.z,dd=Math.hypot(dx,dz)||1;
+          player.position.x=p.x+dx/dd*4;player.position.z=p.z+dz/dd*4;moving=false;
+          window.__face&&__face('surprised',800);
+        }else{
+          player.position.set(p.dest[0],0,p.dest[1]);
+          target.copy(player.position);moving=false;
+          say3(p.line);window.__face&&__face('happy',1200);
+        }
+      }
+    }
   }
   renderer.render(scene,cam);
 }
@@ -1493,7 +1609,7 @@ function buildMini(){
       else if(!nextName){d.className='mdot next';nextName="第"+(i+1)+"关·"+st.name;}
     }
     const[mx,my]=mapXY(st.x,st.z);
-    d.style.left=mx+'%';d.style.top=my+'%';m.appendChild(d);
+    d.style.left=Math.max(4,Math.min(96,mx))+'%';d.style.top=Math.max(4,Math.min(96,my))+'%';m.appendChild(d);
   });
   const bd=document.createElement('span');bd.className='mdot done';bd.style.background='#C89A5B';
   const[bx,by]=mapXY(0,-16);bd.style.left=bx+'%';bd.style.top=by+'%';m.appendChild(bd);

@@ -203,6 +203,12 @@
   #insideBg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; animation:kb 16s ease-in-out infinite alternate; }
   @keyframes kb { from{ transform:scale(1) translate(0,0);} to{ transform:scale(1.12) translate(-2%,-1.5%);} }
 </style>
+<script>
+/* 合并版:线上入口统一为 3D 世界(index 只做深链转交);file:// 保留 2D 独立版离线可玩;?stay=QA 逃生门 */
+if(location.protocol!=='file:'&&!/[?#&]stay/.test(location.search+location.hash)){
+  location.replace('world3d.html'+location.search+location.hash);
+}
+</script>
 </head>
 <body>
 <header>
@@ -255,7 +261,7 @@
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=11"></script>
-<script src="qz-engine.js?v=1"></script>
+<script src="qz-engine.js?v=2"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=3" onerror="this.remove()"></script>
 </body>
