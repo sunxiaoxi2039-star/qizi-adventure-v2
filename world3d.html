@@ -393,9 +393,10 @@
 <script src="levels_demos.js?v=1" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=12"></script>
 <script>window.QZ_EMBED=true;</script>
-<script src="qz-engine.js?v=3"></script>
+<script src="i18n_ui.js?v=2" onerror="this.remove()"></script>
+<script src="qz-engine.js?v=5"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
-<script src="qz-map.js?v=3" onerror="this.remove()"></script>
+<script src="qz-map.js?v=4" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -570,10 +571,12 @@ addEventListener('pointerdown',function unlock(){
   try{speechSynthesis.resume();}catch(e){}
   removeEventListener('pointerdown',unlock);
 },{once:true});
+window.__stop3D=()=>{try{if(curAudio3)curAudio3.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}};
 function say3(t){
   window.__lastSaid={t:t,vo:!!(VO3&&VO3[t])};
   if(CFG.voice<=0)return;
   if(!audioUnlocked)return; // 手机端首次触摸前浏览器禁止出声,直接丢弃
+  window.__stop2D&&__stop2D();
   const lang=(()=>{try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}})();
   const line=VO3L&&VO3L[t];
   let file=VO3&&VO3[t],trText=null,trLang=null;
@@ -1267,7 +1270,7 @@ window.__tp=(x,z)=>{ // QA:无参=读位置,有参=瞬移
   if(x===undefined)return [Math.round(player.position.x*10)/10,Math.round(player.position.z*10)/10];
   player.position.set(x,0,z);target.copy(player.position);moving=false;return [x,z];};
 window.QZ_HOST={
-  show(){document.getElementById('qzApp').classList.add('on');},
+  show(){window.__stop3D&&__stop3D();document.getElementById('qzApp').classList.add('on');},
   hide(){document.getElementById('qzApp').classList.remove('on');
     try{prog=JSON.parse(localStorage.getItem('qz2_prog'))||{};refreshStations();}catch(e){}},
   romp(backKey){this.hide();
@@ -1381,6 +1384,7 @@ const ROMP={on:new URLSearchParams(location.search).get('romp')==='1',
 function sayId3(id){
   try{
     if(CFG.voice<=0||!audioUnlocked)return;
+    window.__stop2D&&__stop2D();
     const line=window.VOICE_MANIFEST&&VOICE_MANIFEST.lines&&VOICE_MANIFEST.lines[id];
     if(!line)return;
     const lang=(function(){try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}})();
@@ -1750,6 +1754,7 @@ window.__applyLang=function(){
     PORTALS.forEach(p=>{if(p.label)scene.remove(p.label);
       p.label=textSprite([tt(p.name),tt("金环传送门")],false);
       p.label.position.set(p.x,6.2,p.z);scene.add(p.label);});
+    window.__qzApplyLang&&__qzApplyLang(); /* 同步 2D 课堂文字 */
   }catch(e){}
 };
 __applyLang();

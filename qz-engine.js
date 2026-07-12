@@ -260,6 +260,15 @@ function tts(t,lg){
     if(!lg||lg==="zh-CN"){const v=bestVoice();if(v)u.voice=v;}
     speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
 /* 播放一条 manifest 行：非中文优先 line.tr[LANG].file，再 tr[LANG].text 走 TTS，否则回落中文 mp3 */
+/* 文字三语:优先复用 manifest 里的 tr 译文(声画同源),短语走 QZ_T2 词典;找不到回落中文 */
+function t2(x){
+  if(LANG==="zh"||!x)return x;
+  const l=VOMAP&&VOMAP[x];
+  if(l&&l.tr&&l.tr[LANG]&&l.tr[LANG].text)return l.tr[LANG].text;
+  const d=window.QZ_T2&&window.QZ_T2[x];
+  return (d&&d[LANG])||x;
+}
+window.__t2=t2; /* qz-map 等外部渲染器共用 */
 function playLine(line){
   if(!line)return false;
   if(LANG!=="zh"&&line.tr&&line.tr[LANG]){
@@ -269,8 +278,11 @@ function playLine(line){
   }
   return line.file?playVO(line.file):false;
 }
-function sayId(id){if(!soundOn||!audioUnlocked)return;if(VOID&&VOID[id]){playLine(VOID[id]);}}
+/* 合并态双声道互斥:开口前静掉 3D 世界的嘴,自己被打断由 __stop2D 提供 */
+window.__stop2D=()=>{try{if(curAudio)curAudio.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}};
+function sayId(id){if(!soundOn||!audioUnlocked)return;if(VOID&&VOID[id]){window.__stop3D&&__stop3D();playLine(VOID[id]);}}
 function say(t){if(!soundOn||!audioUnlocked)return;
+  window.__stop3D&&__stop3D();
   if(VOMAP&&VOMAP[t]&&playLine(VOMAP[t]))return;
   tts(t,"zh-CN");}
 let actx=null;
@@ -283,7 +295,7 @@ function tone(seq){if(!soundOn)return;
       o.start(t);o.stop(t+d);t+=d*.9;}}catch(e){}}
 const sPlace=()=>tone([[440,.08]]),sCap=()=>tone([[660,.1],[880,.12]]),
       sWin=()=>tone([[523,.12],[659,.12],[784,.12],[1047,.25]]),sNo=()=>tone([[180,.18]]);
-function msg(t,speak){lastMsg=t;$("msg").textContent=t;if(speak!==false)say(t);}
+function msg(t,speak){lastMsg=t;$("msg").textContent=t2(t);if(speak!==false)say(t);}
 function confetti(){
   // 樱花满屏(孩子的胜利礼)
   for(let i=0;i<34;i++){
@@ -324,6 +336,7 @@ function chRank(id){
 }
 let mapSel=-1; /* 用户点 chip 选中的章节；-1=自动跟随当前进度 */
 function mapToast(t){
+  t=t2(t);
   let d=$("mapToast");
   if(!d){d=document.createElement("div");d.id="mapToast";document.body.appendChild(d);}
   d.textContent=t;d.classList.add("on");
@@ -403,6 +416,8 @@ function show(s){
   /* 合并态:回"世界"=收起课程浮层回 3D(2D 广场/内部不再出现) */
   if(window.QZ_EMBED&&(s==="world"||s==="inside")){
     stopWorld();
+    if(demoTok)demoTok.dead=true;
+    window.__stop2D&&__stop2D();
     if(window.QZ_HOST)QZ_HOST.hide();
     return;
   }
@@ -420,7 +435,7 @@ function buttons(list){
   const b=$("btns");b.innerHTML="";
   for(const[txt,cls,fn]of list){const x=document.createElement("button");
     // 同一窑美学:按钮文字剥离前置 emoji(按钮文字不进语音,安全)
-    x.className="big "+cls;x.textContent=txt.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/,"");x.onclick=fn;b.appendChild(x);}
+    x.className="big "+cls;x.textContent=t2(txt.replace(/^[^\u4e00-\u9fa5A-Za-z0-9]+/,""));x.onclick=fn;b.appendChild(x);}
 }
 function stdButtons(){
   const a=[["💡 提示","alt",doHint],["🔄 重来","gray",()=>start(cur)]];
@@ -1036,12 +1051,30 @@ $("sndBtn").onclick=()=>{soundOn=!soundOn;$("sndBtn").classList.toggle("muted",!
   else if($("world").classList.contains("on"))startAmbient();};
 const LANG_LABEL={zh:"中",en:"EN",de:"DE"}; /* 图标由 hud_lang 物料出 */
 function refreshLangBtn(){$("langBtn").textContent=LANG_LABEL[LANG]||"🗣 中";}
+function applyLang2D(){
+  refreshLangBtn();
+  /* 顶栏静态文字随语言切(保留前置 emoji) */
+  try{
+    const setKeep=(id,zh)=>{const el=$(id);if(!el)return;
+      const m=el.textContent.match(/^([^\u4e00-\u9fa5A-Za-z0-9]+)/);
+      el.textContent=(m?m[1]:"")+t2(zh);};
+    setKeep("backBtn","地图");setKeep("worldBtn","看风景");setKeep("ttl","棋子大冒险");
+  }catch(e){}
+  try{buildMap();refreshStars();}catch(e){}
+  if(cur&&$("game").classList.contains("on"))msg(lastMsg,false);
+}
+window.__qzApplyLang=()=>{
+  LANG=localStorage.getItem("qz_lang")||"zh";
+  if(LANG!=="zh"&&LANG!=="en"&&LANG!=="de")LANG="zh";
+  applyLang2D();
+};
 $("langBtn").onclick=()=>{
   LANG=LANG==="zh"?"en":LANG==="en"?"de":"zh";
   localStorage.setItem("qz_lang",LANG);
-  refreshLangBtn();
+  applyLang2D();
+  window.__applyLang&&__applyLang(); /* 同步 3D 世界牌子 */
 };
-refreshLangBtn();
+applyLang2D();
 window.addEventListener("resize",()=>{if(cur&&$("game").classList.contains("on"))layout();});
 
 /* ---------- 家长区：今日任务 + 名词卡 + 免费宝库 ---------- */

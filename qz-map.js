@@ -3,7 +3,8 @@
    依赖接口(引擎保证):CH[], chapUnlocked(i), chRank(id), prog, freeplay(), mapSel, start(lv) */
 (function(){
 const UI="assets/ui/final/";
-const V="?v=3";
+const V="?v=3"; /* 资产版本;脚本自身 ?v=4 */
+const T=x=>window.__t2?window.__t2(x):x; /* 引擎的三语函数 */
 /* 四段长卷,每段承载的章节 id(从下到上) */
 const SEGS=[
   {img:"bg_seg1_snow.jpg", ids:[1,2,3,4,5,6,7]},
@@ -89,8 +90,8 @@ function build(){
   const stars=ch.levels.filter(l=>prog[l.key]).length;
   html+='<div id="qzCard"><img class="qzCardBg" src="'+UI+'frame_card.png'+V+'">'
     +'<div class="qzCardIn">'
-    +'<div class="qzPlank"><img src="'+UI+'plank_wood.png'+V+'"><span>'+(ch.name||"")+'</span></div>'
-    +'<div class="qzRank">'+(typeof chRank!=='undefined'?chRank(ch.id):"")+' · <img class="qzStarS" src="'+UI+'star_gold.png'+V+'"> '+stars+'/'+ch.levels.length+'</div>'
+    +'<div class="qzPlank"><img src="'+UI+'plank_wood.png'+V+'"><span>'+T(ch.name||"")+'</span></div>'
+    +'<div class="qzRank">'+T(typeof chRank!=='undefined'?chRank(ch.id):"")+' · <img class="qzStarS" src="'+UI+'star_gold.png'+V+'"> '+stars+'/'+ch.levels.length+'</div>'
     +'<div class="qzLvs">';
   ch.levels.forEach((lv,li)=>{
     const done=!!prog[lv.key];
@@ -100,7 +101,7 @@ function build(){
     html+='<button class="qzLv'+(locked?' lock':'')+(done?' done':'')+'" data-k="'+lv.key+'">'
       +'<img src="'+UI+(LV_ICON[lv.t]||"btn_pencil.png")+V+'">'
       +(done?'<img class="qzLvStar" src="'+UI+'star_gold.png'+V+'">':'')
-      +'<span>'+(lv.name||"")+'</span></button>';
+      +'<span>'+T(lv.name||"")+'</span></button>';
   });
   html+='</div></div></div>';
   map.innerHTML=html;
