@@ -822,8 +822,8 @@ function propInstance(name,height){
   c.rotation.y=PROP_ROT[name]||0;
   return w;
 }
-function loadProp(name,onReady){
-  newGLTF().load('assets/models/prop_'+name+'.glb',g=>{
+function loadProp(name,onReady,file){
+  newGLTF().load('assets/models/'+(file||'prop_'+name+'.glb'),g=>{
     try{
       const sc=g.scene;
       sc.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
@@ -862,7 +862,7 @@ loadProp('tower',()=>{
 });
 loadProp('mushroom',()=>{
   if(SWAP.mushDone)return;SWAP.mushDone=true;
-  mush.clear();const inst=propInstance('mushroom',3.1);mush.add(inst);
+  const inst=propInstance('mushroom',3.1);inst.position.set(-14,0,2);scene.add(inst); // v2 原位
 });
 loadProp('stone_black',()=>{
   SWAP.snow.filter(o=>o.black).forEach(o=>{
@@ -914,7 +914,7 @@ loadProp('panda',()=>{
   [[8,10,2.6],[-30,-18,1.0],[26,-26,-2.2]].forEach(([x,z,ry])=>{
     const p=propInstance('panda',1.0);p.position.set(x,0,z);p.rotation.y=ry;scene.add(p);
   });
-});
+},'npc_panda.glb');
 let loaderHidden=false;
 function hideLoader(){if(loaderHidden)return;loaderHidden=true;
   setTimeout(()=>$('loader').classList.add('off'),400);}
