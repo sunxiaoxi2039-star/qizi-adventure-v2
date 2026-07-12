@@ -401,7 +401,10 @@
 <script type="module">
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
 import {clone as skClone} from 'three/addons/utils/SkeletonUtils.js';
+const DRACO=new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/draco/gltf/');
+const newGLTF=()=>new GLTFLoader().setDRACOLoader(DRACO);
 
 const app=document.getElementById('app');
 const renderer=new THREE.WebGLRenderer({antialias:true});
@@ -778,7 +781,7 @@ function adoptGLB(glb){
     heroEntry=animBunnies[0]||null;
     if(CLIPS.idle){
       ['walk','jump'].forEach(name=>{
-        new GLTFLoader().load('assets/models/anim/bunny_'+name+'.glb',g2=>{
+        newGLTF().load('assets/models/anim/bunny_'+name+'.glb',g2=>{
           try{
             if(g2.animations&&g2.animations.length){
               CLIPS[name]=g2.animations[0];
@@ -803,12 +806,12 @@ function tryB64(){
     const bin=atob(window.BUNNY_GLB_B64);
     const buf=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
-    new GLTFLoader().parse(buf.buffer,'assets/models/',adoptGLB,()=>hideLoader());
+    newGLTF().parse(buf.buffer,'assets/models/',adoptGLB,()=>hideLoader());
   }catch(e){hideLoader();}
 }
 if(location.protocol==='file:')tryB64();
-else new GLTFLoader().load(MODEL_URL,adoptGLB,undefined,
-  ()=>new GLTFLoader().load(MODEL_FALLBACK,adoptGLB,undefined,tryB64));
+else newGLTF().load(MODEL_URL,adoptGLB,undefined,
+  ()=>newGLTF().load(MODEL_FALLBACK,adoptGLB,undefined,tryB64));
 const PROPS={},PROP_ROT={yurt:-Math.PI/2,tree:0,cloud:0,stone_black:0,stone_white:0,mushroom:-Math.PI/2,tower:-Math.PI/2,cave:-Math.PI/2,bush:0,lantern:0,bridge:0,panda:-Math.PI/2};
 const SWAP={stations:[],deco:[],snow:[],trees:[],cloudsDone:false,mushDone:false};
 function propInstance(name,height){
@@ -820,7 +823,7 @@ function propInstance(name,height){
   return w;
 }
 function loadProp(name,onReady){
-  new GLTFLoader().load('assets/models/prop_'+name+'.glb',g=>{
+  newGLTF().load('assets/models/prop_'+name+'.glb',g=>{
     try{
       const sc=g.scene;
       sc.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
