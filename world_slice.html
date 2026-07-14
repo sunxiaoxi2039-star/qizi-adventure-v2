@@ -1,0 +1,164 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>棋境 · 3D slice(兔子身后视角)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#eaf2fb;font-family:sans-serif}
+  #app{position:fixed;inset:0}
+  #hint{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.85);
+    color:#5a6a7a;font-size:13px;font-weight:700;padding:8px 16px;border-radius:999px;z-index:5}
+  /* 左下角迷你图 = 母版底图(C:2D 与 3D 呼应) */
+  #mini{position:fixed;left:14px;bottom:14px;width:168px;height:112px;border-radius:16px;
+    background:#fff center/cover no-repeat;box-shadow:0 3px 12px rgba(0,0,0,.18);z-index:5;overflow:hidden}
+  #mrab{position:absolute;width:12px;height:12px;border-radius:50%;background:#F06FA8;border:2px solid #fff;
+    transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:#eaf2fb;color:#7a8a9a;font-weight:700;z-index:9}
+</style></head><body>
+<div id="app"></div>
+<div id="hint">↑↓←→ 走 · 你就是这只兔子,镜头在你身后</div>
+<div id="mini"><span id="mrab"></span></div>
+<div id="load">糯糯正在走进云端世界…</div>
+<script src="world_layout.js?v=1"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
+const L=window.WORLD_LAYOUT;
+document.getElementById('mini').style.backgroundImage='url('+L.miniImg+L.V+')';
+
+const DRACO=new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/draco/gltf/');
+const newGLTF=()=>new GLTFLoader().setDRACOLoader(DRACO);
+
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+app.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xEAF2FB);
+scene.fog=new THREE.Fog(0xF3F7FC,60,150);
+const cam=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,600);
+
+scene.add(new THREE.HemisphereLight(0xFFFFFF,0xEDE6D6,1.05));
+const sun=new THREE.DirectionalLight(0xFFF6E8,1.15);sun.position.set(30,60,40);
+sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-60;sun.shadow.camera.right=60;sun.shadow.camera.top=60;sun.shadow.camera.bottom=-60;
+scene.add(sun);
+
+const WHITE=new THREE.MeshStandardMaterial({color:0xFFFFFF,roughness:.95});
+const CREAM=new THREE.MeshStandardMaterial({color:0xFBF7EF,roughness:.9});
+const WOOD =new THREE.MeshStandardMaterial({color:0xD9A86C,roughness:.85});
+const WOODD=new THREE.MeshStandardMaterial({color:0xBE8C55,roughness:.85});
+const BLACK=new THREE.MeshStandardMaterial({color:0x2D2B28,roughness:.5});
+
+/* 大片纯白云地(母版画风)+ 云堆 */
+const ground=new THREE.Mesh(new THREE.CircleGeometry(200,64),new THREE.MeshStandardMaterial({color:0xFCFDFF,roughness:.98}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+function cloudLump(x,z,r,h){const m=new THREE.Mesh(new THREE.SphereGeometry(r,20,14),WHITE);
+  m.scale.y=h/r;m.position.set(x,-.2,z);m.receiveShadow=true;scene.add(m);return m;}
+// 村子边缘一圈云堆
+for(let a=0;a<26;a++){const th=a/26*Math.PI*2,rr=40+((a*7)%3)*6;
+  cloudLump(Math.sin(th)*rr,Math.cos(th)*rr-6,5+((a*5)%3)*3,4+((a*3)%3)*3);}
+// 天上飘几朵大白云
+for(let i=0;i<7;i++){const c=new THREE.Group();
+  [[0,0,7],[6,1,5],[-6,0,5],[3,2,4]].forEach(([dx,dy,r])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),WHITE);m.position.set(dx,dy,0);c.add(m);});
+  c.position.set(-70+i*24,26+((i*5)%3)*5,-70-((i*7)%3)*14);c.scale.setScalar(1.1);scene.add(c);}
+
+/* 暖木栈道(村子往前铺一段)+ 黑棋踏板 */
+const pathPts=[];
+for(let i=0;i<=20;i++){const t=i/20;const x=Math.sin(t*3.0)*4; const z=8-t*46;pathPts.push(new THREE.Vector3(x,0,z));}
+for(let i=0;i<pathPts.length-1;i++){
+  const a=pathPts[i],b=pathPts[i+1];const mid=a.clone().lerp(b,.5);
+  const len=a.distanceTo(b);
+  const plank=new THREE.Mesh(new THREE.BoxGeometry(5.4,.18,len+.4),WOOD);
+  plank.position.copy(mid);plank.position.y=.09;
+  plank.lookAt(b.x,.09,b.z);plank.receiveShadow=true;scene.add(plank);
+}
+// 黑棋踏板(几颗)
+[[0,4],[1.5,-6],[-1.2,-16],[1.8,-26],[-1,-36]].forEach(([x,z])=>{
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,.5,22),BLACK);
+  s.scale.y=.7;s.position.set(x,.3,z);s.castShadow=true;scene.add(s);
+});
+
+let ready=0;const need=5;
+function done(){if(++ready>=need)document.getElementById('load').style.display='none';}
+function place(url,x,z,h,ry){
+  newGLTF().load('assets/models/'+url,g=>{
+    const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+    const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
+    sc.scale.setScalar(h/hh);sc.position.set(x-cx*h/hh,-b.min.y*h/hh,z-cz*h/hh);sc.rotation.y=ry||0;
+    scene.add(sc);done();
+  },undefined,()=>done());
+}
+// 雪村:灯塔 + 两座屋 + 树 + 拱桥(复用现成模型)
+place('prop_tower.glb',-13,2,9,0);        // 灯塔
+place('prop_cave.glb',12,-4,5.2,-0.5);    // 洞屋
+place('prop_yurt.glb',-9,-14,4,0.3);      // 雪屋
+place('prop_tree.glb',7,6,4,0);           // 树
+place('prop_bridge.glb',0.5,-8,2.4,0);    // 拱桥
+
+/* 兔子(第三人称主角)*/
+const player=new THREE.Group();scene.add(player);
+player.position.set(0,0,6);       // 村口
+let heroYaw=Math.PI;              // 朝 -z(往前/往上走)
+let mixer=null,actIdle=null,actWalk=null,cur=null;
+function crossto(a){if(!a||cur===a)return;a.reset().fadeIn(.2).play();if(cur)cur.fadeOut(.2);cur=a;}
+newGLTF().load('assets/models/anim/bunny_idle.glb',g=>{
+  const sc=g.scene;sc.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
+  const s=2.1/hh;sc.scale.setScalar(s);sc.position.set(-cx*s,-b.min.y*s,-cz*s);
+  player.add(sc);
+  mixer=new THREE.AnimationMixer(sc);
+  if(g.animations[0])actIdle=mixer.clipAction(g.animations[0]);
+  cur=actIdle;actIdle&&actIdle.play();
+  // 借 walk clip
+  newGLTF().load('assets/models/anim/bunny_walk.glb',g2=>{
+    if(g2.animations[0]){actWalk=mixer.clipAction(g2.animations[0]);}
+    done();
+  },undefined,()=>done());
+},undefined,()=>done());
+
+/* 键控 + 自动往前走一小段(给出片一个动感) */
+const keys={};
+addEventListener('keydown',e=>keys[e.key]=true);
+addEventListener('keyup',e=>keys[e.key]=false);
+let autoT=performance.now()+900; // 开场自动往前走 ~4s
+addEventListener('pointerdown',()=>{autoT=0;});
+
+const camPos=new THREE.Vector3(0,7,20);
+const clock=new THREE.Clock();
+function step(){
+  const dt=Math.min(.05,clock.getDelta());const now=performance.now();
+  let mv=0,turn=0;
+  if(keys.ArrowUp||keys.w)mv=1; if(keys.ArrowDown||keys.s)mv=-.6;
+  if(keys.ArrowLeft||keys.a)turn=1; if(keys.ArrowRight||keys.d)turn=-1;
+  if(autoT&&now<autoT+3600){mv=1;} // 开场自动前进
+  heroYaw+=turn*1.6*dt;
+  const moving=mv!==0;
+  if(moving){
+    const dx=Math.sin(heroYaw)*mv, dz=Math.cos(heroYaw)*mv;
+    player.position.x+=dx*7*dt; player.position.z+=dz*7*dt;
+    // 边界(村子范围)
+    player.position.x=Math.max(-30,Math.min(30,player.position.x));
+    player.position.z=Math.max(-42,Math.min(9,player.position.z));
+  }
+  player.rotation.y=THREE.MathUtils.lerp(player.rotation.y,heroYaw,.2);
+  if(mixer){mixer.update(dt);crossto(moving&&actWalk?actWalk:actIdle);}
+  // 第三人称:镜头在兔子身后 + 略高
+  const back=new THREE.Vector3(Math.sin(heroYaw+Math.PI)*7.5, 4.4, Math.cos(heroYaw+Math.PI)*7.5).add(player.position);
+  camPos.lerp(back,.09);cam.position.copy(camPos);
+  cam.lookAt(player.position.x,1.5,player.position.z);
+  // 迷你图小兔点(用坐标真源投影)
+  const [mx,my]=L.worldToMini(player.position.x,player.position.z);
+  const r=document.getElementById('mrab');r.style.left=Math.max(5,Math.min(95,mx))+'%';r.style.top=Math.max(5,Math.min(95,my))+'%';
+  renderer.render(scene,cam);
+  requestAnimationFrame(step);
+}
+step();
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+window.__slice={pos:()=>player.position.toArray(),yaw:()=>heroYaw,setYaw:v=>{heroYaw=v;},tp:(x,z)=>{player.position.set(x,0,z);}};
+</script></body></html>
