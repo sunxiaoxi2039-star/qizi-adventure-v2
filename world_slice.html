@@ -16,7 +16,7 @@
     background:#eaf2fb;color:#7a8a9a;font-weight:700;z-index:9}
 </style></head><body>
 <div id="app"></div>
-<div id="hint">↑↓←→ 走 · 你就是这只兔子,镜头在你身后</div>
+<div id="hint">按住屏幕往前走 · 左右滑转向 · 你就是这只兔子</div>
 <div id="mini"><span id="mrab"></span></div>
 <div id="load">糯糯正在走进云端世界…</div>
 <script src="world_layout.js?v=1"></script>
@@ -122,12 +122,16 @@ newGLTF().load('assets/models/anim/bunny_idle.glb',g=>{
   },undefined,()=>done());
 },undefined,()=>done());
 
-/* 键控 + 自动往前走一小段(给出片一个动感) */
+/* 键控(桌面)+ 触屏(手机:按住往前走,左右滑转向)+ 开场自动走一小段 */
 const keys={};
 addEventListener('keydown',e=>keys[e.key]=true);
 addEventListener('keyup',e=>keys[e.key]=false);
 let autoT=performance.now()+900; // 开场自动往前走 ~4s
-addEventListener('pointerdown',()=>{autoT=0;});
+let touchWalk=0, touchTurn=0, lastX=0, touching=false;
+addEventListener('pointerdown',e=>{autoT=0;touching=true;touchWalk=1;lastX=e.clientX;});
+addEventListener('pointermove',e=>{if(touching){touchTurn+=(lastX-e.clientX)*0.010;lastX=e.clientX;}});
+function endTouch(){touching=false;touchWalk=0;touchTurn=0;}
+addEventListener('pointerup',endTouch);addEventListener('pointercancel',endTouch);
 
 const camPos=new THREE.Vector3(0,7,20);
 const clock=new THREE.Clock();
@@ -136,8 +140,10 @@ function step(){
   let mv=0,turn=0;
   if(keys.ArrowUp||keys.w)mv=1; if(keys.ArrowDown||keys.s)mv=-.6;
   if(keys.ArrowLeft||keys.a)turn=1; if(keys.ArrowRight||keys.d)turn=-1;
-  if(autoT&&now<autoT+3600){mv=1;} // 开场自动前进
-  heroYaw+=turn*1.6*dt;
+  if(touchWalk)mv=1;                       // 手机:按住往前
+  if(autoT&&now<autoT+3600){mv=1;}         // 开场自动前进
+  heroYaw+=turn*1.6*dt + touchTurn;        // 手机:滑动转向
+  touchTurn*=0.55;                          // 转向惯性衰减
   const moving=mv!==0;
   if(moving){
     const dx=Math.sin(heroYaw)*mv, dz=Math.cos(heroYaw)*mv;
