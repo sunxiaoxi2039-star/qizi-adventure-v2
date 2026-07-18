@@ -397,6 +397,7 @@
 <script src="qz-engine.js?v=5"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=4" onerror="this.remove()"></script>
+<script src="world_decor.js?v=1" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -1536,6 +1537,45 @@ STATIONS.forEach((st,i)=>CAM_BLOCKERS.push({x:st.x,z:st.z,r:4.8,h:i===4?11:5.4})
 TREES.forEach(([x,z,h])=>CAM_BLOCKERS.push({x,z,r:1.7,h:h*.95})); // 树冠糊脸也要闪开
 CAM_BLOCKERS.push({x:0,z:-64,r:17,h:13});   // 圣殿雕像
 CAM_BLOCKERS.push({x:138,z:-48,r:11,h:17}); // 天空城宫殿
+/* ===== 装饰运行时(B卖相计划):读 world_decor.js 纯数据摆件;引擎/逻辑零改动 ===== */
+if(window.WORLD_DECOR){
+  const NO_GO=[...STATIONS.map(st=>({x:st.x,z:st.z,r:7})),
+    ...PORTALS.map(p=>({x:p.x,z:p.z,r:6})),{x:0,z:-16,r:6},{x:0,z:-64,r:18},{x:138,z:-48,r:4}];
+  const okSpot=(x,z,h)=>!NO_GO.some(n=>Math.hypot(x-n.x,z-n.z)<n.r)&&
+    !(h>1.4 && z>0&&z<10&&Math.abs(x)<50); // 通道带只许低矮物
+  const SAGE=new THREE.MeshStandardMaterial({color:0x8CB57E,roughness:.9});
+  const PURE=new THREE.MeshStandardMaterial({color:0xFCFDFF,roughness:.97});
+  function decorProp(model,x,z,h,ry){
+    newGLTF().load('assets/models/'+model,g=>{
+      const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+      const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y||1,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
+      const k=h/hh;sc.scale.setScalar(k);sc.position.set(x-cx*k,-b.min.y*k,z-cz*k);
+      sc.rotation.y=(ry||0)+(PROP_ROT[model.replace(/^prop_|\.glb$/g,'')]||0);
+      scene.add(sc);
+    },undefined,()=>{});
+  }
+  let placed=0,skipped=0;
+  Object.values(WORLD_DECOR).forEach(list=>{
+    if(!Array.isArray(list))return;
+    list.forEach(d=>{
+      if(!d||typeof d.x!=='number'||typeof d.z!=='number'||!d.h)return;
+      if(!okSpot(d.x,d.z,d.h)){skipped++;return;}
+      if(d.type==='prop'&&d.model){
+        decorProp(d.model,d.x,d.z,d.h,d.ry);
+        if(d.h>=3)COLLIDERS.push({x:d.x,z:d.z,r:Math.min(4,d.h*.25)});
+        if(d.h>=5)CAM_BLOCKERS.push({x:d.x,z:d.z,r:Math.min(5,d.h*.32),h:d.h});
+      }else if(d.type==='green'){
+        const m=new THREE.Mesh(new THREE.SphereGeometry(d.h,16,12),SAGE);
+        m.scale.y=.18;m.position.set(d.x,-.05,d.z);m.receiveShadow=true;scene.add(m);
+      }else if(d.type==='cloud'){
+        const m=new THREE.Mesh(new THREE.SphereGeometry(d.h,16,12),PURE);
+        m.scale.y=.55;m.position.set(d.x,(d.y!=null?d.y:-.3),d.z);m.receiveShadow=true;scene.add(m);
+      }else{skipped++;return;}
+      placed++;
+    });
+  });
+  console.log('[decor] placed',placed,'skipped',skipped);
+}
 COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
 COLLIDERS.push({x:8,z:10,r:.8});            // 熊猫村民
 COLLIDERS.push({x:-30,z:-18,r:.8});
