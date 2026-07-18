@@ -4,7 +4,8 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:#E8EEF8;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
-  #app{position:fixed;inset:0;touch-action:none}
+  #bg{position:fixed;inset:0;background-size:cover;background-position:center 42%;z-index:0}
+  #app{position:fixed;inset:0;touch-action:none;z-index:1}
   #hint{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.88);
     color:#5a6a7a;font-size:13px;font-weight:700;padding:8px 16px;border-radius:999px;z-index:5;white-space:nowrap}
   #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
@@ -258,6 +259,7 @@
   #qzApp [onclick*="world3d"]{display:none!important;}
 </style>
 </head><body>
+<div id="bg"></div>
 <div id="app"></div>
 <div id="sceneTtl">…</div>
 <div id="hint">按住屏幕蹦跶 · 跳进金光圈开始上课</div>
@@ -364,42 +366,25 @@ function renderLanterns(celebrate){
 /* ---------- 2.5D 布景(slice 底座,参数来自 SC.ambience) ---------- */
 const A=SC.ambience;
 const app=document.getElementById('app');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+document.getElementById('bg').style.backgroundImage='url('+SC.bg+SC.bgV+')';
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.16;
 app.appendChild(renderer.domElement);
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0xE8EEF8);
-scene.fog=new THREE.Fog(A.fog,22,56);
+const scene=new THREE.Scene();   // 画中即景:无底色无雾,画就是世界
 const cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,400);
 scene.add(new THREE.HemisphereLight(0xFFFFFF,0xEFF2FA,1.3));
 const sun=new THREE.DirectionalLight(A.sun,1.2);sun.position.set(26,50,30);
 sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
 sun.shadow.camera.left=-40;sun.shadow.camera.right=40;sun.shadow.camera.top=40;sun.shadow.camera.bottom=-40;
 scene.add(sun);
-const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(190,107),
-  new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load(SC.bg+SC.bgV,t=>{t.colorSpace=THREE.SRGBColorSpace;}),fog:false}));
-backdrop.position.set(0,24,-62);scene.add(backdrop);
-(function(){ /* 接缝雾带 */
-  const c=document.createElement('canvas');c.width=4;c.height=128;
-  const x=c.getContext('2d');const g=x.createLinearGradient(0,0,0,128);
-  g.addColorStop(0,'rgba(246,249,253,0)');g.addColorStop(.35,'rgba(246,249,253,1)');
-  g.addColorStop(.75,'rgba(246,249,253,1)');g.addColorStop(1,'rgba(246,249,253,0)');
-  x.fillStyle=g;x.fillRect(0,0,4,128);
-  const mist=new THREE.Mesh(new THREE.PlaneGeometry(210,32),
-    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,fog:false}));
-  mist.position.set(0,2.5,-57);scene.add(mist);
-})();
-for(let i=0;i<11;i++){ /* 地平线雪丘 */
-  const x=-60+i*12+((i*7)%5)-2,z=-40-((i*3)%3)*4,r=6+((i*5)%4)*1.6;
-  const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),
-    new THREE.MeshStandardMaterial({color:0xFCFDFF,roughness:.98}));
-  m.scale.y=.42;m.position.set(x,-.3,z);scene.add(m);
-}
+
+
+
 const ground=new THREE.Mesh(new THREE.CircleGeometry(140,48),
-  new THREE.MeshStandardMaterial({color:A.ground,roughness:.97}));
+  new THREE.ShadowMaterial({opacity:.22}));   // 隐形地面,只接兔子影子
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 function prop(url,x,z,h,ry){
   newGLTF().load('assets/models/'+url,g=>{
@@ -409,8 +394,8 @@ function prop(url,x,z,h,ry){
     scene.add(sc);
   },undefined,()=>{});
 }
-(A.props||[]).forEach(p=>prop(...p));
-(A.warmLights||[]).forEach(([x,z])=>{const pl=new THREE.PointLight(0xFFC98A,5.5,11,1.8);pl.position.set(x,2.1,z);scene.add(pl);});
+
+
 /* 飘雪 */
 let snowPts=null,spd=[];
 if(A.snow){
@@ -430,12 +415,12 @@ eglow.rotation.x=-Math.PI/2;eglow.position.set(SC.entrance.x,.12,SC.entrance.z);
 
 /* ---------- 兔子 + 蹦跶 + 踩雪音(slice 底座) ---------- */
 const player=new THREE.Group();scene.add(player);
-player.position.set(0,0,8);
+player.position.set(0,0,4);
 let heroYaw=Math.PI,mixer=null;
 newGLTF().load('assets/models/anim/bunny_idle.glb',g=>{
   const sc=g.scene;sc.traverse(o=>{if(o.isMesh)o.castShadow=true;});
   const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
-  const s=2.0/hh;sc.scale.setScalar(s);sc.position.set(-cx*s,-b.min.y*s,-cz*s);
+  const s=1.7/hh;sc.scale.setScalar(s);sc.position.set(-cx*s,-b.min.y*s,-cz*s);
   player.add(sc);
   mixer=new THREE.AnimationMixer(sc);
   if(g.animations[0])mixer.clipAction(g.animations[0]).play();
@@ -520,8 +505,8 @@ function step(){
         hop.fx=player.position.x;hop.fz=player.position.z;
         const yaw=celebrateHops>0?heroYaw+Math.PI*2*Math.random():heroYaw;
         const len=celebrateHops>0?.6:HOP_LEN;
-        hop.tx=Math.max(-26,Math.min(26,hop.fx+Math.sin(yaw)*len));
-        hop.tz=Math.max(-30,Math.min(13,hop.fz+Math.cos(yaw)*len));
+        hop.tx=Math.max(-11,Math.min(11,hop.fx+Math.sin(yaw)*len));
+        hop.tz=Math.max(-13,Math.min(7,hop.fz+Math.cos(yaw)*len));
       }
     }
     if(hop.active){
@@ -545,10 +530,7 @@ function step(){
   if(mixer)mixer.update(dt);
   const pulse=1+Math.sin(now/560)*.06;    // 入口呼吸
   ering.scale.set(pulse,pulse,1);
-  const back=new THREE.Vector3(Math.sin(heroYaw+Math.PI)*7.4,3.4,Math.cos(heroYaw+Math.PI)*7.4).add(player.position);
-  camPos.lerp(back,.09);cam.position.copy(camPos);
-  cam.lookAt(player.position.x,2.9,player.position.z);
-  backdrop.position.x=-player.position.x*.28;
+  cam.position.set(0,10.5,17);cam.lookAt(0,0.6,-3);   // 固定机位=画的视角
   if(snowPts){const pp=snowPts.geometry.attributes.position;
     for(let i=0;i<130;i++){let y=pp.getY(i)-spd[i]*dt;if(y<0)y=34;pp.setY(i,y);}
     pp.needsUpdate=true;}
