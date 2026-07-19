@@ -398,6 +398,7 @@
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=4" onerror="this.remove()"></script>
 <script src="world_decor.js?v=1" onerror="this.remove()"></script>
+<script src="world_board.js?v=1" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -459,7 +460,8 @@ function undulate(x,z,r,h,mat){
   const m=new THREE.Mesh(new THREE.SphereGeometry(r,28,18),mat||WHITE);
   m.scale.y=h/r;m.position.set(x,0,z);m.receiveShadow=true;scene.add(m);return m;
 }
-undulate(-80,-95,50,7);undulate(78,-98,55,9);undulate(-88,-30,26,5);undulate(88,-16,28,6);
+undulate(-80,-95,50,7);undulate(78,-98,55,9);undulate(-88,-30,26,5);
+const DUNE_E=undulate(88,-16,28,6); // 东雪包:?board 旗开时南移让开云堤大道(见板运行时)
 undulate(-45,-125,60,14,WHITE2);undulate(48,-128,66,16,WHITE2);
 /* 云堤环:朝两个云上分区(±x,z≈-26)方向开窗,免得挡路挡视线 */
 const ZONE_ANGS=[Math.atan2(138,-26),Math.atan2(-138,-26)+Math.PI*2];
@@ -1524,7 +1526,14 @@ function ptUp(e){
   const hit=ray.intersectObject(ground)[0];
   if(hit){target.copy(hit.point);target.y=0;
     const d=target.length();
-    if(d>75)target.multiplyScalar(75/d);
+    if(d>75){/* ?board 旗开时:点云堤或云上分区不往回拽 */
+      let ok=false;
+      if(BOARD_PTS){
+        if(boardNear(target.x,target.z).d<=BOARD_W+1)ok=true;
+        else for(const c of ZONE_CENTERS)if(Math.hypot(target.x-c[0],target.z-c[1])<=25){ok=true;break;}
+      }
+      if(!ok)target.multiplyScalar(75/d);
+    }
     moving=true;}
 }
 renderer.domElement.addEventListener('pointerup',ptUp);
@@ -1576,6 +1585,85 @@ if(window.WORLD_DECOR){
   });
   console.log('[decor] placed',placed,'skipped',skipped);
 }
+/* ===== 桌游样板路(?board=1 试验旗):圣殿→天空城 云海长堤,证明"一个世界一条大道" =====
+   不带旗零变化;collide/ptUp 只在 BOARD_PTS 非空时走豁免分支 */
+let BOARD_PTS=null;const BOARD_W=5;
+function boardNear(x,z){
+  let best=1e9,bp=null;
+  for(const p of BOARD_PTS){const d=Math.hypot(x-p.x,z-p.z);if(d<best){best=d;bp=p;}}
+  return {d:best,p:bp};
+}
+if(/[?&]board=/.test(location.search)&&window.WORLD_BOARD){
+  const B=window.WORLD_BOARD;
+  const curve=new THREE.CatmullRomCurve3(B.path.map(([x,z])=>new THREE.Vector3(x,0,z)));
+  BOARD_PTS=curve.getSpacedPoints(140);
+  let seed=7;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
+  const L=curve.getLength(),hutN=B.huts||10;
+  const hutTs=[];for(let i=0;i<hutN;i++)hutTs.push(.06+.88*i/(hutN-1));
+  const lat=t=>{const tg=curve.getTangentAt(Math.min(t,1));return new THREE.Vector3(-tg.z,0,tg.x);};
+  /* 长堤盘石(白瓷云石,首尾相叠成路)+ 云沿泡 */
+  const dStep=5.2/L;
+  for(let t=0;t<=1+1e-6;t+=dStep){
+    const tc=Math.min(t,1),p=curve.getPointAt(tc);
+    const nearHut=hutTs.some(h=>Math.abs(h-tc)<dStep*.6);
+    const r=(nearHut?5.3:4.3)+rnd()*.4;
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(r,r*.86,1.3,36),WHITE2);
+    disc.position.set(p.x,-.57,p.z);disc.receiveShadow=true;scene.add(disc);
+    [-1,1].forEach(s=>{if(rnd()<.75){
+      const off=lat(tc).multiplyScalar(s*(r+.4+rnd()*.8));
+      const puff=new THREE.Mesh(new THREE.SphereGeometry(.8+rnd()*.8,14,10),WHITE);
+      puff.scale.y=.55;puff.position.set(p.x+off.x,-.4+rnd()*.25,p.z+off.z);puff.receiveShadow=true;scene.add(puff);}});
+    if(rnd()<.3){const up=new THREE.Mesh(new THREE.SphereGeometry(1.8+rnd()*1.2,14,10),WHITE);
+      up.scale.y=.6;up.position.set(p.x+(rnd()-.5)*3,-1.6-rnd()*.8,p.z+(rnd()-.5)*3);scene.add(up);}
+  }
+  /* 路心金色踏点(桌游格子感,压过盘石顶面) */
+  for(let t=.015;t<1;t+=3.4/L){
+    const p=curve.getPointAt(t);
+    const dot=new THREE.Mesh(new THREE.CylinderGeometry(.8,.8,.08,14),PATHM);
+    dot.position.set(p.x,.13,p.z);dot.receiveShadow=true;scene.add(dot);
+  }
+  /* 编号关卡小屋(白瓷半球+暖门+号码牌,左右交替) */
+  function numSprite(n){
+    const c=document.createElement('canvas');c.width=c.height=128;
+    const g=c.getContext('2d');
+    g.fillStyle='rgba(255,255,255,.96)';g.beginPath();g.arc(64,64,56,0,6.3);g.fill();
+    g.strokeStyle='#F2C76E';g.lineWidth=9;g.beginPath();g.arc(64,64,50,0,6.3);g.stroke();
+    g.fillStyle='#B5651D';g.font='700 62px "PingFang SC",sans-serif';
+    g.textAlign='center';g.textBaseline='middle';g.fillText(n,64,68);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthWrite:false}));
+    sp.scale.set(1.15,1.15,1);return sp;
+  }
+  const lampSpots=[],treeSpots=[],hutSpots=[];
+  hutTs.forEach((t,i)=>{
+    const p=curve.getPointAt(t),side=i%2?1:-1,off=lat(t).multiplyScalar(side*3.1);
+    const hx=p.x+off.x,hz=p.z+off.z;
+    const dc=new THREE.Vector3(p.x-hx,0,p.z-hz).normalize();
+    hutSpots.push([hx,hz,Math.atan2(dc.x,dc.z),i]);
+    const ns=numSprite(i+1);ns.position.set(hx,3.3,hz);scene.add(ns);
+    COLLIDERS.push({x:hx,z:hz,r:1.9});
+    const back=lat(t).multiplyScalar(-side*3.5);
+    if(i%2===0)lampSpots.push([p.x+back.x,p.z+back.z]);
+    else if(i%4===1)treeSpots.push([p.x+back.x,p.z+back.z,3.1+rnd()*.8]);
+  });
+  /* 关卡小屋=村里同款白瓷雪屋,五色轻染,门朝大路 */
+  loadProp('yurt',()=>{hutSpots.forEach(([x,z,ang,i])=>{
+    let h=propInstance('yurt',2.7);
+    if(!h)return;
+    h=tintClone(h,STATION_TINT[i%STATION_TINT.length],.16);
+    h.position.set(x,0,z);h.rotation.y=ang;
+    h.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+    scene.add(h);});});
+  loadProp('lantern',()=>{lampSpots.forEach(([x,z])=>{
+    const ln=propInstance('lantern',1.7);if(!ln)return;
+    ln.position.set(x,0,z);scene.add(ln);COLLIDERS.push({x,z,r:.55});});});
+  loadProp('tree',()=>{treeSpots.forEach(([x,z,h])=>{
+    const tr=propInstance('tree',h);if(!tr)return;
+    tr.position.set(x,0,z);scene.add(tr);COLLIDERS.push({x,z,r:.8});});});
+  /* 路旁悬浮小岛(共用呼吸动画) */
+  (B.isles||[]).forEach(([x,y,z,s])=>floatIsle(x,y,z,s));
+  DUNE_E.position.set(88,0,-46); // 东雪包南移:让开大道视野,仍填南侧远景
+  console.log('[board] causeway L≈'+Math.round(L),'huts',hutN);
+}
 COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
 COLLIDERS.push({x:8,z:10,r:.8});            // 熊猫村民
 COLLIDERS.push({x:-30,z:-18,r:.8});
@@ -1598,12 +1686,17 @@ function collide(){
       if(moving&&Math.hypot(target.x-player.position.x,target.z-player.position.z)<1.4)moving=false;
     }
   }
-  /* 复合栓绳:主岛 r76;云上分区各 r25(以最近分区计) */
+  /* 复合栓绳:主岛 r76;云上分区各 r25(以最近分区计);?board 旗开时云堤走廊放行 */
   const dd=Math.hypot(player.position.x,player.position.z);
   if(dd>76){
     let zc=null,zd=1e9;
     for(const c of ZONE_CENTERS){const d=Math.hypot(player.position.x-c[0],player.position.z-c[1]);if(d<zd){zd=d;zc=c;}}
+    let bd=1e9,bp=null;
+    if(BOARD_PTS){const bn=boardNear(player.position.x,player.position.z);bd=bn.d;bp=bn.p;}
     if(zc&&zd<=25){/* 在分区活动圈内 */}
+    else if(bd<=BOARD_W){/* 云堤走廊上 */}
+    else if(bd<=BOARD_W+6){const f=BOARD_W/bd;
+      player.position.x=bp.x+(player.position.x-bp.x)*f;player.position.z=bp.z+(player.position.z-bp.z)*f;}
     else if(zc&&zd<=48){const f=25/zd;
       player.position.x=zc[0]+(player.position.x-zc[0])*f;player.position.z=zc[1]+(player.position.z-zc[1])*f;}
     else{player.position.x*=76/dd;player.position.z*=76/dd;}
