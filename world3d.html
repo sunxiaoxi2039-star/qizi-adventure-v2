@@ -1257,6 +1257,19 @@ for(let i=0;i<10;i++){
   b.position.set(Math.sin(a)*d,0,-64+Math.cos(a)*d);
   b.lookAt(0,1,-64);scene.add(b);
 }
+/* 兔祖师圣殿站的祖师小像:灯塔旁立本尊(同一窑口:白瓷兔+白瓷基座),名副其实 */
+{
+  const mSt=new THREE.Group();mSt.add(bunnyGLB(3.2));
+  mSt.position.set(40,1.02,-3);mSt.rotation.y=0.72;scene.add(mSt); // 面朝大路
+  const mPed=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.8,1,26),WHITE2);
+  mPed.position.set(40,.5,-3);mPed.receiveShadow=true;mPed.castShadow=true;scene.add(mPed);
+  [[38.4,-1.1,.5],[41.9,-.7,-.4]].forEach(([x,z,ry],i)=>{ // 两只小兔作揖
+    const w=bunnyGLB(.55);tintBunny(w,BUNNY_TINT[i%BUNNY_TINT.length]);
+    const b=new THREE.Group();b.add(w);
+    b.position.set(x,0,z);b.lookAt(40,.8,-3);b.rotateX(.2);scene.add(b);
+  });
+  COLLIDERS.push({x:40,z:-3,r:2.1});
+}
 
 const zoneEl=$('zone');
 let curZone=null;
@@ -1545,6 +1558,7 @@ const CAM_BLOCKERS=[];
 STATIONS.forEach((st,i)=>CAM_BLOCKERS.push({x:st.x,z:st.z,r:4.8,h:i===4?11:5.4}));
 TREES.forEach(([x,z,h])=>CAM_BLOCKERS.push({x,z,r:1.7,h:h*.95})); // 树冠糊脸也要闪开
 CAM_BLOCKERS.push({x:0,z:-64,r:17,h:13});   // 圣殿雕像
+CAM_BLOCKERS.push({x:40,z:-3,r:1.9,h:4.3}); // 灯塔旁祖师小像
 CAM_BLOCKERS.push({x:138,z:-48,r:11,h:17}); // 天空城宫殿
 /* ===== 装饰运行时(B卖相计划):读 world_decor.js 纯数据摆件;引擎/逻辑零改动 ===== */
 if(window.WORLD_DECOR){
