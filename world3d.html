@@ -1681,6 +1681,23 @@ if(/[?&]board=/.test(location.search)&&window.WORLD_BOARD){
     const goStart=()=>{player.position.set(46,0,4);target.copy(player.position);camYaw=-1.85;};
     goStart();setTimeout(goStart,1200);
   }
+  /* 🧭 一键下一景(评审用,随 board 旗):循环跳四景,防迷路 */
+  {
+    const VIEWS=[['雪村广场',0,18,1.26],['大道起点',46,4,-1.85],['试炼浮岛',-138,-12,0],['天空城',130,-16,-0.24]];
+    let vi=0;
+    const jb=document.createElement('button');
+    jb.textContent='🧭 下一景';
+    jb.style.cssText='position:fixed;left:14px;bottom:158px;z-index:40;border:none;cursor:pointer;'+
+      'background:#FBF9F4;color:#7a5a2a;font-weight:800;font-size:14px;padding:9px 16px;'+
+      'border-radius:999px;box-shadow:0 2px 0 #EFE4CC,0 4px 10px rgba(120,80,20,.15);font-family:inherit;';
+    jb.onclick=()=>{
+      vi=(vi+1)%VIEWS.length;
+      const [nm,x,z,yaw]=VIEWS[vi];
+      player.position.set(x,0,z);target.copy(player.position);moving=false;camYaw=yaw;
+      jb.textContent='🧭 '+nm;
+    };
+    document.body.appendChild(jb);
+  }
   console.log('[board] causeway L≈'+Math.round(L),'huts',hutN);
 }
 COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
