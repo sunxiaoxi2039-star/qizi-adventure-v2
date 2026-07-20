@@ -1676,6 +1676,11 @@ if(/[?&]board=/.test(location.search)&&window.WORLD_BOARD){
   /* 路旁悬浮小岛(共用呼吸动画) */
   (B.isles||[]).forEach(([x,y,z,s])=>floatIsle(x,y,z,s));
   DUNE_E.position.set(88,0,-46); // 东雪包南移:让开大道视野,仍填南侧远景
+  /* ?go=board 评审直达:出生即站在大道起点面朝天空城(防开场动画抢位,1.2s 再钉一次) */
+  if(/[?&]go=board/.test(location.search)){
+    const goStart=()=>{player.position.set(46,0,4);target.copy(player.position);camYaw=-1.85;};
+    goStart();setTimeout(goStart,1200);
+  }
   console.log('[board] causeway L≈'+Math.round(L),'huts',hutN);
 }
 COLLIDERS.push({x:0,z:-64,r:15});           // 圣殿雕像基座
