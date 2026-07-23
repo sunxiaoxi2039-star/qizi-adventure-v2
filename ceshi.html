@@ -1,0 +1,86 @@
+<!doctype html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#FBF9F4">
+<title>棋子大冒险 · 内测体验</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#4a3a2a;
+    background:
+      radial-gradient(90% 55% at 18% -8%,#FFFEFB 0%,rgba(255,254,251,0) 60%),
+      radial-gradient(80% 45% at 88% 2%,#FDF6E6 0%,rgba(253,246,230,0) 55%),
+      linear-gradient(180deg,#FDF9F0 0%,#F6EEDC 100%);
+    background-attachment:fixed;min-height:100vh;line-height:1.6;
+    padding:calc(env(safe-area-inset-top) + 22px) 16px calc(env(safe-area-inset-bottom) + 40px)}
+  .wrap{max-width:460px;margin:0 auto}
+  .badge{display:inline-block;background:#FFF1C9;color:#a9772a;font-size:12px;font-weight:800;
+    padding:4px 12px;border-radius:999px;letter-spacing:1px;margin-bottom:14px}
+  .hero{text-align:center;margin-bottom:26px}
+  .logo{font-size:76px;line-height:1;margin-bottom:6px;filter:drop-shadow(0 6px 10px rgba(180,150,120,.25))}
+  h1{font-size:30px;font-weight:800;color:#B5651D;letter-spacing:1px}
+  .sub{font-size:15px;color:#8a6a3a;margin-top:6px;font-weight:600}
+  .btn{display:block;margin:22px auto 10px;max-width:300px;text-decoration:none;
+    background:linear-gradient(180deg,#8FC98F,#6BAE6E);color:#fff;font-size:19px;font-weight:800;
+    padding:16px 20px;border-radius:18px;text-align:center;letter-spacing:1px;
+    box-shadow:0 3px 0 #5E9E62,0 8px 20px rgba(110,174,110,.4);transition:transform .1s}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #5E9E62,0 4px 12px rgba(110,174,110,.4)}
+  .btn2{display:block;max-width:300px;margin:0 auto;text-decoration:none;text-align:center;
+    color:#a98a52;font-size:13px;font-weight:700;padding:8px;border-radius:12px}
+  .btn2:active{background:rgba(217,168,108,.12)}
+  .card{background:#fff;border-radius:22px;padding:18px 18px 20px;margin:14px 0;
+    box-shadow:0 2px 0 #EFE4CC,0 10px 24px rgba(120,80,20,.07);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+  .card.g::before{background:#77B77A}.card.o::before{background:#F2C76E}.card.p::before{background:#F5AFC1}
+  .card h2{font-size:17px;color:#B5651D;margin-bottom:12px;font-weight:800}
+  .item{display:flex;gap:11px;align-items:flex-start;padding:7px 0;border-top:1px solid #F4EEE2}
+  .item:first-of-type{border-top:none;padding-top:0}
+  .ico{font-size:22px;flex:none;width:30px;text-align:center}
+  .it-t{font-weight:800;font-size:15px;color:#5a4326}
+  .it-d{font-size:13px;color:#8a7a62;margin-top:1px}
+  .tips li{list-style:none;font-size:14px;color:#6a5a42;padding:5px 0 5px 22px;position:relative}
+  .tips li::before{content:"·";position:absolute;left:6px;top:-1px;color:#D9A86C;font-weight:900;font-size:20px}
+  .fb{background:linear-gradient(180deg,#FFF7E8,#FFF1D6)}
+  .fb p{font-size:14px;color:#7a5a2a}
+  .fb b{color:#B5651D}
+  .foot{text-align:center;font-size:12px;color:#b3a184;margin-top:22px;line-height:1.7;padding:0 8px}
+</style></head><body>
+<div class="wrap">
+  <div class="hero">
+    <div class="badge">内测体验版 · 请多提意见</div>
+    <div class="logo">🐰</div>
+    <h1>棋子大冒险</h1>
+    <div class="sub">3D 白瓷世界 · 给 4–8 岁孩子的围棋启蒙</div>
+    <a class="btn" href="world3d.html?board=1&go=board">▶ 进入体验</a>
+    <a class="btn2" href="world3d.html">（或看正式版：不带评审动线）</a>
+  </div>
+
+  <div class="card g">
+    <h2>👀 这次帮我们看这 5 点</h2>
+    <div class="item"><div class="ico">🎨</div><div><div class="it-t">好不好看</div><div class="it-d">白瓷雪村、试炼浮岛、天空城——奶油质感对不对味</div></div></div>
+    <div class="item"><div class="ico">🕹️</div><div><div class="it-t">好不好操作</div><div class="it-d">拖屏幕看风景、两指捏合缩放、点地面走路</div></div></div>
+    <div class="item"><div class="ico">🧭</div><div><div class="it-t">会不会迷路</div><div class="it-d">左下角有「下一景」按钮和小地图，能不能找到路</div></div></div>
+    <div class="item"><div class="ico">🔊</div><div><div class="it-t">语音清不清楚</div><div class="it-d">走近关卡小屋，糯糯兔会开口讲解</div></div></div>
+    <div class="item"><div class="ico">🌏</div><div><div class="it-t">三语能不能切</div><div class="it-d">右上角音量按钮里可切 中文 / English / Deutsch</div></div></div>
+  </div>
+
+  <div class="card o">
+    <h2>📱 手机小贴士</h2>
+    <ul class="tips">
+      <li>建议 <b>横屏</b> 玩，视野更宽</li>
+      <li>首次进入要加载 3D 模型，<b>等几秒</b>白屏是正常的</li>
+      <li>WiFi 或流量都行；如果很久打不开，换一下网络再试</li>
+      <li>左下「🧭 下一景」= 一键跳到下一个场景，不怕走丢</li>
+    </ul>
+  </div>
+
+  <div class="card p fb">
+    <h2>✍️ 怎么把意见给我们</h2>
+    <p>玩的时候看到<b>哪里卡住、哪里难看、哪里听不懂</b>，随手<b>截个图</b>或记一句话，发回给对接人就行。孩子的真实反应（爱不爱玩、卡在哪一步）比什么都值钱。</p>
+  </div>
+
+  <div class="foot">
+    诚实说明：目前课程内容覆盖到<b>约业余 8 级</b>的知识点，正陆续更新到业余 1 段(1D)。<br>
+    画面与玩法仍在打磨中，你现在看到的是内部测试版本。
+  </div>
+</div>
+</body></html>
