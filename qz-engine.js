@@ -318,7 +318,7 @@ function saveWin(){prog[cur.key]=true;localStorage.setItem(LSP,JSON.stringify(pr
 
 /* ---------- 地图 ---------- */
 /* 体验模式（家长区开关）：qz2_freeplay=1 时所有章节/关卡视为解锁，但不改 prog、不发星星 */
-function freeplay(){return localStorage.getItem("qz2_freeplay")==="1";}
+function freeplay(){return localStorage.getItem("qz2_freeplay")==="1"||/[?&]all=1/.test(location.search);}
 function chapDone(i){return CH[i].levels.every(l=>prog[l.key]);}
 /* 章节知识点对应的常见级位区间徽章 */
 function chRank(id){

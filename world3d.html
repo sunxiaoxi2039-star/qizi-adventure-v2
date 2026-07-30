@@ -394,7 +394,7 @@
 <script src="assets/voice/manifest.js?v=12"></script>
 <script>window.QZ_EMBED=true;</script>
 <script src="i18n_ui.js?v=2" onerror="this.remove()"></script>
-<script src="qz-engine.js?v=5"></script>
+<script src="qz-engine.js?v=6"></script>
 <script src="map_anchors.js?v=2" onerror="this.remove()"></script>
 <script src="qz-map.js?v=4" onerror="this.remove()"></script>
 <script src="world_decor.js?v=1" onerror="this.remove()"></script>
@@ -1032,6 +1032,8 @@ const STATIONS=[
   {x:138,z:-34,name:"天空城",a:R_SKY[0],b:R_SKY[1],link:()=>"index.html?ch="+firstOpenCh(R_SKY[0],R_SKY[1]),
    pitch:"最高的白瓷宫殿——大棋盘的星辰大海",open:()=>rangeComplete(R_DAN),tip:"先走完试炼浮岛的段位阶梯"},
 ];
+/* 🛠 开发者捷径 ?all=1:所有车站解锁(纯 URL 判断,不改 prog、不污染存档) */
+if(/[?&]all=1/.test(location.search))STATIONS.forEach(s=>{s.open=()=>true;});
 const stat=i=>rangeStats(STATIONS[i].a,STATIONS[i].b);
 let currentIdx=0;
 for(let i=0;i<STATIONS.length;i++){const s=stat(i);
@@ -1459,6 +1461,20 @@ if(ROMP.on)startRomp();
 /* ?ch= 深链:直接展开课程浮层(撒欢模式除外) */
 {const chDeep=new URLSearchParams(location.search).get('ch');
  if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
+/* 🛠 开发者跳关器(?all=1):顶部下拉,随时去任意一章 */
+if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:45;'+
+    'background:rgba(251,249,244,.96);border-radius:999px;padding:6px 12px;display:flex;gap:7px;align-items:center;'+
+    'box-shadow:0 2px 10px rgba(120,80,20,.16);font-family:inherit;max-width:88vw;';
+  const lab=document.createElement('span');lab.textContent='🛠';lab.style.fontSize='16px';lab.style.flex='none';
+  const sel=document.createElement('select');
+  sel.style.cssText='border:none;background:transparent;color:#7a5a2a;font-weight:800;font-size:13px;font-family:inherit;max-width:74vw;cursor:pointer;';
+  const def=document.createElement('option');def.value='';def.textContent='跳到任意一关…';sel.appendChild(def);
+  CH.forEach((c,i)=>{const o=document.createElement('option');o.value=c.id;o.textContent=(i+1)+'. '+(c.name||('第'+c.id+'章'));sel.appendChild(o);});
+  sel.onchange=()=>{if(sel.value&&window.QZ){QZ.openChapter(+sel.value);sel.blur();}};
+  wrap.appendChild(lab);wrap.appendChild(sel);document.body.appendChild(wrap);
+}
 function pClickGrid(i,j){
   if(!playMode||pOver||pBusy)return;
   if(i<0||j<0||i>=GN||j>=GN)return;
