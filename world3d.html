@@ -735,6 +735,7 @@ function bunnyGLB(height){
     g.scale.setScalar(sc);g.position.set(-cx*sc,-glbBox.min.y*sc,-cz*sc);
     inner.add(g);
     const H=height;entry.H=H;entry.animRoot=g;
+    attachTailBall(g);          // 每只兔子各挂一颗尾巴毛球(原型被克隆,球不会跟着复制)
     attachActions(entry);
   }
   if(glbProto)fill();else pendingSkins.push(fill);
@@ -814,7 +815,8 @@ window.__bunnyJump=()=>{
 };
 /* 尾巴收成小圆点:模型朝 +X,尾巴是 -X 低处那簇顶点。
    在共享原型上改一次几何,全场兔子(含 NPC/雕像)同时生效;骨骼蒙皮在此之后计算,不受影响。 */
-const TAIL={x0:-0.018,y0:0.055,y1:0.30,r:0.042,push:0.026};  // r=毛球半径,push=往身体里贴多少
+const TAIL={x0:-0.018,y0:0.055,y1:0.30,r:0.055,push:0.026,   // r 调大一点,确保盖住删面留下的洞
+  debug:/[?&]tailDbg/.test(location.search)};  // r=毛球半径,push=往身体里贴多少
 function nubTail(root){
   let moved=0;
   root.traverse(o=>{
@@ -827,27 +829,68 @@ function nubTail(root){
     for(let i=0;i<a.length;i+=3)if(inTail(i)){cy+=a[i+1];cz+=a[i+2];n++;if(a[i]>xRoot)xRoot=a[i];}
     if(!n)return;
     cy/=n;cz/=n;
-    const ox=xRoot-TAIL.r+TAIL.push, oy=cy, oz=cz;   // 球心
-    for(let i=0;i<a.length;i+=3){
-      if(!inTail(i))continue;
-      /* 把每个顶点沿"球心→顶点"方向重新投到半径 r 的球面上 =
-         无论原来多长多尖,一律变成同一个圆滚滚的毛球。
-         半径带 ±8% 随机抖动,读起来是绒毛而不是塑料球。 */
-      let dx=a[i]-ox, dy=a[i+1]-oy, dz=a[i+2]-oz;
-      const d=Math.hypot(dx,dy,dz)||1e-6;
-      const fuzz=1+((Math.sin(i*12.9898)*43758.5453)%1)*0.16-0.08;
-      const rr=TAIL.r*fuzz;
-      a[i]  =ox+dx/d*rr;
-      a[i+1]=oy+dy/d*rr;
-      a[i+2]=oz+dz/d*rr;
-      moved++;
+    TAIL.anchor=[xRoot,cy,cz];
+    if(TAIL.debug){
+      for(let i=0;i<a.length;i+=3)if(inTail(i)){a[i+1]+=0.5;moved++;}
+    }else{
+      /* 直接删掉尾巴的三角面。
+         ⚠️ 试过"把顶点塌陷进身体",不行:蒙皮会按各自骨权重把它们重新拉开,
+            推多深都会在臀部渗出一片粉色。删面才是根治。 */
+      const idx=o.geometry.index;
+      if(idx){
+        const src=idx.array,keep=[];
+        const vIn=v=>{const i=v*3;return a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1;};
+        for(let f=0;f<src.length;f+=3){
+          const A=src[f],B=src[f+1],C=src[f+2];
+          /* 只要沾到尾巴区就删:只删"三点全中"的话,边界面会被拉成一片粉色楔子。
+             留下的洞由毛球盖住。 */
+          if(vIn(A)||vIn(B)||vIn(C)){moved++;continue;}
+          keep.push(A,B,C);
+        }
+        const Arr=src.length>65535?Uint32Array:Uint16Array;
+        o.geometry.setIndex(new THREE.BufferAttribute(new Arr(keep),1));
+      }
     }
     p.needsUpdate=true;
     if(o.geometry.attributes.normal)o.geometry.computeVertexNormals();  // 重算法线,毛球才有立体感
     o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox();
   });
-  if(moved)console.log('[tail] 毛球化顶点',moved);
+  if(moved)console.log('[tail] 删掉尾巴三角面',moved,'个');
   return root;
+}
+/* 挂一个程序生成的毛球当尾巴:绑在胯骨上,跟着走路/跳跃动画一起动。
+   球体由几颗小球簇成,边缘不规则 → 读起来是绒毛,不是塑料弹珠。 */
+const TAILMAT=new THREE.MeshStandardMaterial({color:0xFFFDFB,roughness:.98,flatShading:false});
+function makeTailBall(){
+  const g=new THREE.Group();
+  const R=TAIL.r;
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(R,16,12),TAILMAT));
+  const puffs=[[.62,.42,0,.55],[-.5,.55,.35,.5],[-.35,-.5,-.4,.52],[.15,-.6,.45,.48],[-.6,.05,-.5,.46]];
+  puffs.forEach(([px,py,pz,s])=>{
+    const m=new THREE.Mesh(new THREE.SphereGeometry(R*s,12,9),TAILMAT);
+    m.position.set(px*R*.85,py*R*.85,pz*R*.85);g.add(m);
+  });
+  g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  return g;
+}
+function attachTailBall(root){
+  if(!TAIL.anchor||TAIL.debug)return;
+  let bone=null;
+  root.traverse(o=>{if(o.isBone&&!bone&&(o.name==='Pelvis'||o.name==='Hip'))bone=o;});
+  const ball=makeTailBall();
+  const [ax,ay,az]=TAIL.anchor;
+  const world=new THREE.Vector3(ax-0.004,ay+0.028,az); // 贴在尾根,略抬高更像兔尾位置
+  if(bone){
+    root.updateMatrixWorld(true);
+    root.localToWorld(world);
+    bone.worldToLocal(world);                          // 换算到骨骼局部坐标
+    ball.position.copy(world);
+    bone.add(ball);                                    // 跟着胯骨动
+    if(!window.__tailBallLogged){window.__tailBallLogged=1;console.log('[tail] 毛球已绑到',bone.name);}
+  }else{
+    ball.position.set(ax+0.012,ay,az);root.add(ball);  // 无骨骼兜底
+  }
+  return ball;
 }
 window.__tailTune=(k,x0)=>{TAIL.k=k;if(x0!=null)TAIL.x0=x0;console.log('改 TAIL 后需重载生效',TAIL);};
 function adoptGLB(glb){
