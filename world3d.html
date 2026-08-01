@@ -443,7 +443,7 @@ const BLACKM=new THREE.MeshPhysicalMaterial({color:0x1A1B1E,roughness:.28,clearc
 const WSTONE=new THREE.MeshPhysicalMaterial({color:0xFBFBF9,roughness:.25,clearcoat:.4,clearcoatRoughness:.4});
 const SOFTPINK=new THREE.MeshStandardMaterial({color:0xF9CCDA,roughness:.75});
 const GREEN=new THREE.MeshStandardMaterial({color:0xA8CC9A,roughness:.85});
-const WOODSIDE=new THREE.MeshStandardMaterial({color:0xB98B43,roughness:.8});
+const WOODSIDE=new THREE.MeshStandardMaterial({color:0xCDA574,roughness:.72}); // 合同暖木基线(旧 B98B43 深20级、饱和高20点)
 const PATHM=new THREE.MeshStandardMaterial({color:0xF6EEDD,roughness:.9});
 
 const groundTex=(()=>{
@@ -867,9 +867,17 @@ loadProp('tower',()=>{
   const inst=propInstance('tower',8.5);
   inst.position.set(o.x,0,o.z);scene.add(inst);
 });
+/* 蘑菇伞盖原是玛丽奥红白波点:全场唯一纯饱和红,不在 8 token 色板里,抢走"兔子+棋盘"的第一读点 */
+window.pinkifyMushroom=function pinkifyMushroom(o3){
+  o3.traverse(o=>{if(o.isMesh&&o.material){
+    const m=o.material=o.material.clone();
+    if(m.color&&m.color.r>.5&&m.color.g<.42&&m.color.b<.42)m.color.set(0xF5AFC1); // 红→兔粉,白波点不动
+  }});
+  return o3;
+}
 loadProp('mushroom',()=>{
   if(SWAP.mushDone)return;SWAP.mushDone=true;
-  const inst=propInstance('mushroom',3.1);inst.position.set(-14,0,2);scene.add(inst); // v2 原位
+  const inst=pinkifyMushroom(propInstance('mushroom',3.1));inst.position.set(-14,0,2);scene.add(inst); // v2 原位
 });
 loadProp('stone_black',()=>{
   SWAP.snow.filter(o=>o.black).forEach(o=>{
@@ -932,10 +940,11 @@ player.add(bunnyGLB(1.35));
 player.position.set(0,0,18);scene.add(player);
 const statue=new THREE.Group();
 statue.add(bunnyGLB(17));
-statue.position.set(0,3.82,-64);scene.add(statue);
-const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(12,14,4,40),WHITE2);
-pedestal.position.set(0,1.8,-64);pedestal.receiveShadow=true;pedestal.castShadow=true;scene.add(pedestal);
-undulate(0,-64,24,6,WHITE2);
+/* 巨像原本被自己脚下 r24/h6 的雪丘吃掉半个身子:基座抬高、雪丘改缓坡 */
+statue.position.set(0,6.9,-64);scene.add(statue);
+const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(12,14,7,40),WHITE2);
+pedestal.position.set(0,3.2,-64);pedestal.receiveShadow=true;pedestal.castShadow=true;scene.add(pedestal);
+undulate(0,-64,32,2.2,WHITE2);
 
 /* 合并态:引擎在场时 CHDEF 直取全量课程表(34 章,含段位 71-75 与天空 82-84,QK5/QDAN/QDEMOS 引擎已合并);引擎缺席退回旧拼装 */
 let CHDEF;
@@ -1585,15 +1594,19 @@ if(window.WORLD_DECOR){
     ...PORTALS.map(p=>({x:p.x,z:p.z,r:6})),{x:0,z:-16,r:6},{x:0,z:-64,r:18},{x:138,z:-48,r:4}];
   const okSpot=(x,z,h)=>!NO_GO.some(n=>Math.hypot(x-n.x,z-n.z)<n.r)&&
     !(h>1.4 && z>0&&z<10&&Math.abs(x)<50); // 通道带只许低矮物
-  const SAGE=new THREE.MeshStandardMaterial({color:0x8CB57E,roughness:.9});
+  const SAGE=new THREE.MeshStandardMaterial({color:0xA8BC82,roughness:.86}); // 合同苔绿基线
   const PURE=new THREE.MeshStandardMaterial({color:0xFCFDFF,roughness:.97});
-  function decorProp(model,x,z,h,ry){
+  /* ⚠️ 旧签名漏了 y:world_decor 里 7 座 prop_isle 写着 y=5..12,全被拍到地上,
+        还因 h>=3 自动加碰撞 → 变成挡路的隐形墙。现在支持悬空,并让浮空件参与呼吸。 */
+  function decorProp(model,x,y,z,h,ry){
     newGLTF().load('assets/models/'+model,g=>{
       const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
       const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y||1,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
-      const k=h/hh;sc.scale.setScalar(k);sc.position.set(x-cx*k,-b.min.y*k,z-cz*k);
+      const k=h/hh;sc.scale.setScalar(k);sc.position.set(x-cx*k,(y||0)-b.min.y*k,z-cz*k);
       sc.rotation.y=(ry||0)+(PROP_ROT[model.replace(/^prop_|\.glb$/g,'')]||0);
+      if(model.indexOf('mushroom')>=0&&window.pinkifyMushroom)pinkifyMushroom(sc); // 装饰里的 5 朵蘑菇同样去红
       scene.add(sc);
+      if(y>0)FLOAT_DECOS.push({g:sc,y0:sc.position.y,ph:(x+z)%6.28}); // 悬空件跟着云一起呼吸
     },undefined,()=>{});
   }
   let placed=0,skipped=0;
@@ -1603,9 +1616,13 @@ if(window.WORLD_DECOR){
       if(!d||typeof d.x!=='number'||typeof d.z!=='number'||!d.h)return;
       if(!okSpot(d.x,d.z,d.h)){skipped++;return;}
       if(d.type==='prop'&&d.model){
-        decorProp(d.model,d.x,d.z,d.h,d.ry);
-        if(d.h>=3)COLLIDERS.push({x:d.x,z:d.z,r:Math.min(4,d.h*.25)});
-        if(d.h>=5)CAM_BLOCKERS.push({x:d.x,z:d.z,r:Math.min(5,d.h*.32),h:d.h});
+        const dy=d.y||0;
+        decorProp(d.model,d.x,dy,d.z,d.h,d.ry);
+        /* 悬空件(y>3)不加地面碰撞——否则天上的浮岛在地上留一堵看不见的墙 */
+        if(dy<3){
+          if(d.h>=3)COLLIDERS.push({x:d.x,z:d.z,r:Math.min(4,d.h*.25)});
+          if(d.h>=5)CAM_BLOCKERS.push({x:d.x,z:d.z,r:Math.min(5,d.h*.32),h:d.h});
+        }
       }else if(d.type==='green'){
         const m=new THREE.Mesh(new THREE.SphereGeometry(d.h,16,12),SAGE);
         m.scale.y=.18;m.position.set(d.x,-.05,d.z);m.receiveShadow=true;scene.add(m);
@@ -1800,7 +1817,8 @@ function step(now){
     if(stuckMs>1200){camDist=Math.min(15,camDist+6);stuckMs=-3500;}
   }else stuckMs=0;
   stuckPX=player.position.x;stuckPZ=player.position.z;
-  const hh=2.4+camDist*.30+Math.max(0,camDist-15)*.55;
+  /* 俯角:合同要求 35-45° 玩具世界视角。旧式 2.4+d*.30 只有 8.2°(近乎平视) */
+  const hh=1.6+camDist*.72;
   let want,look;
   if(playMode){want=new THREE.Vector3(0,15.5,-4);look=new THREE.Vector3(0,.7,-17);}
   else if(window.__photo){
@@ -1809,7 +1827,7 @@ function step(now){
     look=new THREE.Vector3(player.position.x,p.ly,player.position.z);
   }else{
     want=new THREE.Vector3(player.position.x+Math.sin(camYaw)*camDist,hh,player.position.z+Math.cos(camYaw)*camDist);
-    look=new THREE.Vector3(player.position.x-Math.sin(camYaw)*14,1.8,player.position.z-Math.cos(camYaw)*14);
+    look=new THREE.Vector3(player.position.x,1.1,player.position.z); // 注视兔子本人(旧值看身后14m,把俯角拉平)
     /* 防穿屋檐:玩家头顶→相机连线撞进建筑体,就把吊臂截短(采样法) */
     {
       const hx=player.position.x,hy=1.6,hz=player.position.z;
