@@ -879,7 +879,8 @@ function attachTailBall(root){
   root.traverse(o=>{if(o.isBone&&!bone&&(o.name==='Pelvis'||o.name==='Hip'))bone=o;});
   const ball=makeTailBall();
   const [ax,ay,az]=TAIL.anchor;
-  const world=new THREE.Vector3(ax-0.004,ay+0.028,az); // 贴在尾根,略抬高更像兔尾位置
+  /* 删面在臀部留了个凹口,球要往身体里塞(+X 方向=朝身体内),否则看着离身一截 */
+  const world=new THREE.Vector3(ax+0.042,ay+0.022,az);
   if(bone){
     root.updateMatrixWorld(true);
     root.localToWorld(world);
@@ -1077,8 +1078,59 @@ loadProp('panda',()=>{
 },'npc_panda.glb');
 let loaderHidden=false;
 function hideLoader(){if(loaderHidden)return;loaderHidden=true;
-  setTimeout(()=>$('loader').classList.add('off'),400);}
+  setTimeout(()=>{$('loader').classList.add('off');startIntro();},400);}
 setTimeout(hideLoader,5000);
+
+/* ===== 开场:全屏黑幕只在兔子处开一个圆窗,镜头从高空俯冲到兔子背后 =====
+   ?nointro=1 跳过(评审/回归用)。整段只读 INTRO,不改任何既有相机逻辑。 */
+const INTRO={on:false,t:0,dur:3.6,r0:0.055,mask:null};
+function startIntro(){
+  if(/[?&]nointro/.test(location.search)||INTRO.done)return;
+  INTRO.done=true;
+  const m=document.createElement('div');
+  m.id='introMask';
+  m.style.cssText='position:fixed;inset:0;z-index:70;pointer-events:none;'+
+    'transition:opacity .6s;will-change:background;';
+  document.body.appendChild(m);
+  INTRO.mask=m;INTRO.on=true;INTRO.t=0;
+  paintMask(INTRO.r0);
+}
+function paintMask(r){
+  if(!INTRO.mask)return;
+  /* 圆窗跟着兔子在屏幕上的位置走 */
+  const p=player.position.clone();p.y+=0.9;
+  p.project(cam);
+  const cx=(p.x*0.5+0.5)*100, cy=(-p.y*0.5+0.5)*100;
+  const inner=Math.max(0,r*100), outer=inner+Math.max(6,r*38);
+  INTRO.mask.style.background=
+    'radial-gradient(circle at '+cx.toFixed(1)+'% '+cy.toFixed(1)+'%,'+
+    'rgba(8,10,14,0) '+inner.toFixed(1)+'%, rgba(8,10,14,.96) '+outer.toFixed(1)+'%)';
+}
+function stepIntro(dt){
+  if(!INTRO.on)return false;
+  INTRO.t+=dt;
+  const k=Math.min(1,INTRO.t/INTRO.dur);
+  const e=1-Math.pow(1-k,3);            // easeOutCubic:落地前减速,像真的降下来
+  /* 相机:高空 → 兔子背后。位置直接写 camPos,绕过常规 lerp */
+  const hi=new THREE.Vector3(player.position.x+Math.sin(camYaw)*camDist*0.35,
+                             62,
+                             player.position.z+Math.cos(camYaw)*camDist*0.35);
+  const lo=new THREE.Vector3(player.position.x+Math.sin(camYaw)*camDist,
+                             1.6+camDist*.72,
+                             player.position.z+Math.cos(camYaw)*camDist);
+  camPos.lerpVectors(hi,lo,e);
+  cam.position.copy(camPos);
+  cam.lookAt(player.position.x,1.1,player.position.z);
+  /* 圆窗:后 55% 行程才开始放大,前段保持小圆=聚光灯锁住兔子 */
+  const g=Math.max(0,(k-0.45)/0.55);
+  paintMask(INTRO.r0+Math.pow(g,1.6)*1.9);
+  if(k>=1){
+    INTRO.on=false;
+    INTRO.mask.style.opacity='0';
+    setTimeout(()=>{INTRO.mask&&INTRO.mask.remove();INTRO.mask=null;},700);
+  }
+  return true;   // 告诉 step():这一帧相机我接管了
+}
 
 const player=new THREE.Group();
 player.add(bunnyGLB(1.35));
@@ -2004,9 +2056,11 @@ function step(now){
       }
     }
   }
-  camPos.lerp(want,.09);
-  cam.position.copy(camPos);
-  cam.lookAt(look);
+  if(!stepIntro(dt)){          // 开场动画期间由 stepIntro 接管相机
+    camPos.lerp(want,.09);
+    cam.position.copy(camPos);
+    cam.lookAt(look);
+  }
   for(const b of bubbles){b.position.y+=b.userData.v*dt;
     if(b.position.y>26){b.position.y=2;b.position.x=(Math.random()-.5)*80;}}
   for(const c of clouds){c.position.x+=c.userData.sp*dt;
