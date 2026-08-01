@@ -762,6 +762,40 @@ function attachActions(entry){
     });
   }catch(e){}
 }
+/* ===== 回眸:站住 0.7 秒后,兔子把头(够不到就用上半身)转回来看镜头,像在等你出招 =====
+   骨架是 Tripo 人形绑定,有 Head / NeckTwist02 / Spine02,优先用 Head。 */
+let glanceT=0,glanceAmt=0,heroBones=null;
+function findHeroBones(){
+  if(heroBones!==null||!heroEntry||!heroEntry.animRoot)return heroBones;
+  const want={Head:null,NeckTwist02:null,Spine02:null};
+  heroEntry.animRoot.traverse(o=>{if(o.isBone&&o.name in want&&!want[o.name])want[o.name]=o;});
+  heroBones=(want.Head||want.NeckTwist02)?want:false;
+  if(heroBones)console.log('[glance] 找到头骨',!!want.Head,'颈',!!want.NeckTwist02);
+  return heroBones;
+}
+function glanceBack(movingNow,dt){
+  const B=findHeroBones();
+  const want=movingNow?0:1;
+  if(movingNow)glanceT=0; else glanceT+=dt;
+  const gate=(!movingNow&&glanceT>0.7)?1:0;                 // 停稳 0.7s 才回头,免得走走停停一直甩
+  glanceAmt+=((want&&gate?1:0)-glanceAmt)*Math.min(1,dt*3.2); // 平滑进出
+  const a=glanceAmt;
+  if(a<0.002){if(B){['Head','NeckTwist02','Spine02'].forEach(k=>{if(B[k])B[k].rotation.y=B[k].userData._gy||0;});}return;}
+  /* 镜头在兔子身后,所以"回头看镜头"= 绕自身 Y 轴转向后方。
+     人形骨骼里 Head 的局部 Y 轴就是左右摇头方向。 */
+  const swing=Math.sin(performance.now()*0.0012)*0.06;       // 轻微左右打量,不呆板
+  if(B){
+    if(B.Head){if(B.Head.userData._gy==null)B.Head.userData._gy=B.Head.rotation.y;
+      B.Head.rotation.y=B.Head.userData._gy+a*(1.05+swing);}
+    if(B.NeckTwist02){if(B.NeckTwist02.userData._gy==null)B.NeckTwist02.userData._gy=B.NeckTwist02.rotation.y;
+      B.NeckTwist02.rotation.y=B.NeckTwist02.userData._gy+a*0.42;}
+    if(B.Spine02){if(B.Spine02.userData._gy==null)B.Spine02.userData._gy=B.Spine02.rotation.y;
+      B.Spine02.rotation.y=B.Spine02.userData._gy+a*0.22;}
+  }else if(heroEntry&&heroEntry.inner){
+    /* 无骨骼兜底(占位兔):整只轻转 3/4 侧身 */
+    heroEntry.inner.rotation.y=-Math.PI/2+a*(1.15+swing);
+  }
+}
 function setLoco(entry,mode){
   if(!entry||!entry.act||!entry.act[mode]||entry.mode===mode)return;
   if(entry.mode==='jump'&&mode!=='jump'&&entry.act.jump.isRunning())return;
@@ -778,9 +812,41 @@ window.__bunnyJump=()=>{
   e.act.jump.reset().fadeIn(.12).play();
   if(from&&from!==e.act.jump)from.fadeOut(.12);
 };
+/* 尾巴收成小圆点:模型朝 +X,尾巴是 -X 低处那簇顶点。
+   在共享原型上改一次几何,全场兔子(含 NPC/雕像)同时生效;骨骼蒙皮在此之后计算,不受影响。 */
+const TAIL={x0:-0.018,y0:0.055,y1:0.30,k:0.30};   // k=保留比例,越小尾巴越短
+function nubTail(root){
+  let moved=0;
+  root.traverse(o=>{
+    if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
+    const p=o.geometry.attributes.position, a=p.array;
+    // 先量出这簇的中心,作为收缩锚点(不同文件微差也能自适应)
+    let sx=0,sy=0,sz=0,n=0;
+    for(let i=0;i<a.length;i+=3){
+      if(a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1){sx+=a[i];sy+=a[i+1];sz+=a[i+2];n++;}
+    }
+    if(!n)return;
+    const cx=sx/n,cy=sy/n,cz=sz/n;
+    for(let i=0;i<a.length;i+=3){
+      if(a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1){
+        a[i]  =cx+(a[i]  -cx)*TAIL.k;
+        a[i+1]=cy+(a[i+1]-cy)*TAIL.k;
+        a[i+2]=cz+(a[i+2]-cz)*TAIL.k;
+        a[i]+=0.012;                    // 收完往身体里贴一点,不留缝
+        moved++;
+      }
+    }
+    p.needsUpdate=true;
+    o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox();
+  });
+  if(moved)console.log('[tail] 收缩顶点',moved);
+  return root;
+}
+window.__tailTune=(k,x0)=>{TAIL.k=k;if(x0!=null)TAIL.x0=x0;console.log('改 TAIL 后需重载生效',TAIL);};
 function adoptGLB(glb){
   try{
     furify(glb.scene);
+    nubTail(glb.scene);
     glbProto=glb.scene;
     glbBox=new THREE.Box3().setFromObject(glbProto);
     if(glb.animations&&glb.animations.length)CLIPS.idle=glb.animations[0];
@@ -868,10 +934,39 @@ loadProp('tower',()=>{
   inst.position.set(o.x,0,o.z);scene.add(inst);
 });
 /* 蘑菇伞盖原是玛丽奥红白波点:全场唯一纯饱和红,不在 8 token 色板里,抢走"兔子+棋盘"的第一读点 */
+/* 红→兔粉:红色来自贴图不是材质色,所以改贴图像素(白波点原样保留)。
+   同一张贴图只处理一次,结果缓存复用。 */
+const PINK_TEX=new Map();
+function pinkifyTexture(tex){
+  if(!tex||!tex.image)return tex;
+  if(PINK_TEX.has(tex.uuid))return PINK_TEX.get(tex.uuid);
+  try{
+    const img=tex.image,w=img.width||256,h=img.height||256;
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    const cx=cv.getContext('2d');cx.drawImage(img,0,0,w,h);
+    const d=cx.getImageData(0,0,w,h),a=d.data;
+    for(let i=0;i<a.length;i+=4){
+      const r=a[i],g=a[i+1],b=a[i+2];
+      if(r>110&&r-g>45&&r-b>45){          // 只动"明显偏红"的像素,白点/暗缝不碰
+        const k=(r-Math.max(g,b))/255;    // 越红改得越多,边缘自然过渡
+        a[i]  =Math.round(r*(1-k)+245*k);
+        a[i+1]=Math.round(g*(1-k)+175*k);
+        a[i+2]=Math.round(b*(1-k)+193*k); // → #F5AFC1 兔粉
+      }
+    }
+    cx.putImageData(d,0,0);
+    const nt=new THREE.CanvasTexture(cv);
+    nt.flipY=tex.flipY;nt.colorSpace=tex.colorSpace;nt.wrapS=tex.wrapS;nt.wrapT=tex.wrapT;
+    PINK_TEX.set(tex.uuid,nt);
+    return nt;
+  }catch(e){return tex;}
+}
 window.pinkifyMushroom=function pinkifyMushroom(o3){
   o3.traverse(o=>{if(o.isMesh&&o.material){
     const m=o.material=o.material.clone();
-    if(m.color&&m.color.r>.5&&m.color.g<.42&&m.color.b<.42)m.color.set(0xF5AFC1); // 红→兔粉,白波点不动
+    if(m.map)m.map=pinkifyTexture(m.map);
+    else if(m.color&&m.color.r>.5&&m.color.g<.42&&m.color.b<.42)m.color.set(0xF5AFC1);
+    m.needsUpdate=true;
   }});
   return o3;
 }
@@ -1876,6 +1971,8 @@ function step(now){
       if(ab.eyes.material!==mat)ab.eyes.material=mat;
     }
   }
+  /* ⚠️ 必须在 mixer.update 之后:动画每帧会重写骨骼旋转,先转头会被覆盖 */
+  glanceBack(heroMoving,dt);
   miniT+=dt;if(miniT>.15){miniT=0;updMini();}
   if(!playMode&&!(ROMP.on&&ROMP.done)){
     let key=null,html=null;
