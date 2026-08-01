@@ -814,32 +814,39 @@ window.__bunnyJump=()=>{
 };
 /* 尾巴收成小圆点:模型朝 +X,尾巴是 -X 低处那簇顶点。
    在共享原型上改一次几何,全场兔子(含 NPC/雕像)同时生效;骨骼蒙皮在此之后计算,不受影响。 */
-const TAIL={x0:-0.018,y0:0.055,y1:0.30,k:0.30};   // k=保留比例,越小尾巴越短
+const TAIL={x0:-0.018,y0:0.055,y1:0.30,r:0.042,push:0.026};  // r=毛球半径,push=往身体里贴多少
 function nubTail(root){
   let moved=0;
   root.traverse(o=>{
     if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
     const p=o.geometry.attributes.position, a=p.array;
-    // 先量出这簇的中心,作为收缩锚点(不同文件微差也能自适应)
-    let sx=0,sy=0,sz=0,n=0;
-    for(let i=0;i<a.length;i+=3){
-      if(a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1){sx+=a[i];sy+=a[i+1];sz+=a[i+2];n++;}
-    }
+    const inTail=i=>a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1;
+    /* 锚点取"尾根"(最贴近身体的那一端),不是整簇重心——
+       否则球心会落在半空,尾巴看着离身。 */
+    let cy=0,cz=0,n=0,xRoot=-1e9;
+    for(let i=0;i<a.length;i+=3)if(inTail(i)){cy+=a[i+1];cz+=a[i+2];n++;if(a[i]>xRoot)xRoot=a[i];}
     if(!n)return;
-    const cx=sx/n,cy=sy/n,cz=sz/n;
+    cy/=n;cz/=n;
+    const ox=xRoot-TAIL.r+TAIL.push, oy=cy, oz=cz;   // 球心
     for(let i=0;i<a.length;i+=3){
-      if(a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1){
-        a[i]  =cx+(a[i]  -cx)*TAIL.k;
-        a[i+1]=cy+(a[i+1]-cy)*TAIL.k;
-        a[i+2]=cz+(a[i+2]-cz)*TAIL.k;
-        a[i]+=0.012;                    // 收完往身体里贴一点,不留缝
-        moved++;
-      }
+      if(!inTail(i))continue;
+      /* 把每个顶点沿"球心→顶点"方向重新投到半径 r 的球面上 =
+         无论原来多长多尖,一律变成同一个圆滚滚的毛球。
+         半径带 ±8% 随机抖动,读起来是绒毛而不是塑料球。 */
+      let dx=a[i]-ox, dy=a[i+1]-oy, dz=a[i+2]-oz;
+      const d=Math.hypot(dx,dy,dz)||1e-6;
+      const fuzz=1+((Math.sin(i*12.9898)*43758.5453)%1)*0.16-0.08;
+      const rr=TAIL.r*fuzz;
+      a[i]  =ox+dx/d*rr;
+      a[i+1]=oy+dy/d*rr;
+      a[i+2]=oz+dz/d*rr;
+      moved++;
     }
     p.needsUpdate=true;
+    if(o.geometry.attributes.normal)o.geometry.computeVertexNormals();  // 重算法线,毛球才有立体感
     o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox();
   });
-  if(moved)console.log('[tail] 收缩顶点',moved);
+  if(moved)console.log('[tail] 毛球化顶点',moved);
   return root;
 }
 window.__tailTune=(k,x0)=>{TAIL.k=k;if(x0!=null)TAIL.x0=x0;console.log('改 TAIL 后需重载生效',TAIL);};
@@ -1108,8 +1115,24 @@ function textSprite(lines,big){
   x.fillText(lines[0],256,82);
   if(lines[1]){x.font='bold 40px "PingFang SC",sans-serif';x.fillStyle='#a98a52';x.fillText(lines[1],256,148);}
   const t=new THREE.CanvasTexture(c);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true}));
-  s.scale.set(big?9:7.4,big?3.4:2.8,1);return s;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));
+  /* 原来 9×3.4 米,比车站建筑还宽:走近时整块糊住画面,又和底部 HTML 面板显示同一句话
+     → 看起来就是"重影"。缩到合理尺寸,并在走近时淡出(近处看面板就够了)。 */
+  s.scale.set(big?5.4:4.6,big?2.0:1.75,1);
+  s.userData.isLabel=true;
+  SPRITE_LABELS.push(s);
+  return s;
+}
+/* 标签距离淡出:12 米外全显示,6 米内完全隐去,让位给底部面板 */
+const SPRITE_LABELS=[];
+function fadeLabels(){
+  const px=player.position.x,pz=player.position.z;
+  for(const s of SPRITE_LABELS){
+    if(!s.parent){continue;}
+    const d=Math.hypot(s.position.x-px,s.position.z-pz);
+    const a=d<6?0:(d>12?1:(d-6)/6);
+    if(s.material.opacity!==a){s.material.opacity=a;s.visible=a>0.02;}
+  }
 }
 // 章节 id 段 → CHDEF 索引范围(章节已按每关≤6知识点重新打包)
 function idxRange(lo,hi){
@@ -1973,6 +1996,7 @@ function step(now){
   }
   /* ⚠️ 必须在 mixer.update 之后:动画每帧会重写骨骼旋转,先转头会被覆盖 */
   glanceBack(heroMoving,dt);
+  fadeLabels();   // 走近时 3D 文字牌淡出,避免和底部面板"重影"
   miniT+=dt;if(miniT>.15){miniT=0;updMini();}
   if(!playMode&&!(ROMP.on&&ROMP.done)){
     let key=null,html=null;
