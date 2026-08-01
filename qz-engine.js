@@ -1264,9 +1264,11 @@ window.__qz={
   scoreGame:()=>scoreGame(),
   doPass:()=>doPass()
 };
-if(/[?#&]all/.test(location.search+location.hash)){
-  FLAT.forEach(l=>prog[l.key]=true);
-  localStorage.setItem(LSP,JSON.stringify(prog));
+/* ?all=1 开发者/评审全解锁:**只在内存里生效,绝不落盘**。
+   ⚠️ 旧版本会 localStorage.setItem 把 169 关写死进孩子的存档(不可恢复),已移除。
+   正则也收紧到精确 all=1,避免 ?allow=x / #all 之类误触发。 */
+if(/[?&]all=1(&|$)/.test(location.search)){
+  FLAT.forEach(l=>prog[l.key]=true);      // 仅内存,页面关掉即失效
 }
 let tapN=0,tapT=0;
 $("ttl").onclick=()=>{
@@ -1277,8 +1279,15 @@ $("ttl").onclick=()=>{
     FLAT.forEach(l=>prog[l.key]=true);
     localStorage.setItem(LSP,JSON.stringify(prog));
     refreshStars();buildMap();confetti();say("家长模式：全部关卡已解锁");
-  }else if(confirm("全部进度将清零，孩子从第一关重新开始。确定吗？")){
-    localStorage.clear();location.reload();
+  }else{
+    /* ⚠️ 绝不能用 localStorage.clear():会连别的孩子的档案、档案列表、语言音量一起抹掉。
+       只清「当前这个孩子」的进度键。 */
+    const who=(window.QZP&&QZP.active&&QZP.active().name)||"这个孩子";
+    if(confirm("将清零【"+who+"】的全部进度，从第一关重新开始。\n（其他孩子的存档不受影响）\n\n确定吗？")){
+      [LSP,LSS,"qz2_freeplay","qz2_sess","qz2_praise"].forEach(k=>localStorage.removeItem(k));
+      for(let d=0;d<400;d++)localStorage.removeItem(LST+d);
+      location.reload();
+    }
   }
 };
 buildMap();refreshStars();

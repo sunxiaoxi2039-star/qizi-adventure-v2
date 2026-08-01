@@ -8,7 +8,14 @@
    API: window.QZP.{list,activeId,active,switchTo,create,rename,remove,exportCode,importCode,openPanel} */
 (function () {
   "use strict";
-  var NS_KEYS = ["qz2_prog", "qz2_freeplay", "qz2_sess", "qz2_praise", "qz2_voice"]; // 分档
+  var NS_KEYS = ["qz2_prog", "qz2_freeplay", "qz2_sess", "qz2_praise", "qz2_voice",
+    "qz2_start"];                       // 90 天日历起点也必须分档,否则老二一进来"今天是第47天"
+  var NS_PFX = ["qz2_task_"];           // 前缀键:每日打卡 qz2_task_<day>
+  function isNS(k) {
+    if (NS_KEYS.indexOf(k) >= 0) return true;
+    for (var i = 0; i < NS_PFX.length; i++) if (k.indexOf(NS_PFX[i]) === 0) return true;
+    return false;
+  }
   var LIST_KEY = "qz_profiles", ACT_KEY = "qz_profile_active";
   var AVATARS = ["🐰", "🐼", "🦊", "🐻", "🐨", "🐯", "🦁", "🐸"];
 
@@ -36,9 +43,18 @@
          ⚠️ 必须打在 Storage.prototype 上——给 localStorage 实例赋函数会被浏览器
          当成"存一条键值",在存储里留下 getItem/setItem/removeItem 三条垃圾。 ---- */
   var SP = Object.getPrototypeOf(ls);   // Storage.prototype
-  SP.getItem = function (k) { return rawGet(NS_KEYS.indexOf(k) >= 0 ? pfx(k) : k); };
-  SP.setItem = function (k, v) { return rawSet(NS_KEYS.indexOf(k) >= 0 ? pfx(k) : k, v); };
-  SP.removeItem = function (k) { return rawDel(NS_KEYS.indexOf(k) >= 0 ? pfx(k) : k); };
+  SP.getItem = function (k) { return rawGet(isNS(k) ? pfx(k) : k); };
+  SP.setItem = function (k, v) { return rawSet(isNS(k) ? pfx(k) : k, v); };
+  SP.removeItem = function (k) { return rawDel(isNS(k) ? pfx(k) : k); };
+  /* clear() 兜底:即使有人调用,也只清当前档案的键,绝不抹掉别的孩子和档案列表 */
+  SP.clear = function () {
+    var a = activeId(), pre = a === 0 ? "" : "p" + a + ":";
+    Object.keys(ls).forEach(function (k) {
+      if (k === LIST_KEY || k === ACT_KEY) return;
+      var bare = pre && k.indexOf(pre) === 0 ? k.slice(pre.length) : (pre ? null : k);
+      if (bare && isNS(bare)) rawDel(k);
+    });
+  };
   /* 清掉早期版本可能写脏的三条(函数源码被当值存了) */
   ["getItem", "setItem", "removeItem"].forEach(function (k) {
     var v = rawGet(k);
