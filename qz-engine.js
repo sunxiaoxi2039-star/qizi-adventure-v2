@@ -3,6 +3,19 @@
 const $=id=>document.getElementById(id);
 const LSP="qz2_prog", LSS="qz2_start", LST="qz2_task_";
 let prog={}; try{prog=JSON.parse(localStorage.getItem(LSP))||{};}catch(e){prog={};}
+/* 一次性存档迁移:ch32/33/34 十七关点杀题棋理错误(白棋用对角"连接",围棋里不成立),
+   已整章重造 6/5/6 关 → 8/8/8 关。关卡键是"章内序号",章长变了老进度会错位,
+   会让重造后的演示课直接显示已通关。所以清掉这三章的旧进度,让孩子重新走一遍(内容是新的)。 */
+(function(){
+  const MK="qz_mig_ld2026";
+  try{
+    if(localStorage.getItem(MK))return;
+    let n=0;
+    Object.keys(prog).forEach(k=>{ if(/^c3[234]l\d+$/.test(k)){ delete prog[k]; n++; } });
+    if(n){ localStorage.setItem(LSP,JSON.stringify(prog)); console.log('[迁移] 清理旧点杀章进度',n,'条'); }
+    localStorage.setItem(MK,"1");
+  }catch(e){}
+})();
 if(!localStorage.getItem(LSS)) localStorage.setItem(LSS, Date.now());
 const dayIdx=Math.min(90, Math.floor((Date.now()-(+localStorage.getItem(LSS)))/864e5)+1);
 let soundOn=true, lastMsg="", koPt=null, passCnt=0, capMe=0, capAI=0;
