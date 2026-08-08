@@ -1274,6 +1274,7 @@ window.__qz={
   hint:()=>{const h=suggest(B);return h?{pt:h.pt,why:h.why}:null;},
   setB:v=>{B=v;draw();},
   pstate:()=>({koPt,passCnt,capMe,capAI,busy,over,msgTxt:$("msg").textContent}),
+  geo:()=>({cssSize,pad,cell,N:cur?cur.size:0}),  /* 3D课堂点击换算用(与 pointerdown 同公式) */
   scoreGame:()=>scoreGame(),
   doPass:()=>doPass()
 };
