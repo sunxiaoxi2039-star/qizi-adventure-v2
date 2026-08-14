@@ -7,11 +7,11 @@ let prog={}; try{prog=JSON.parse(localStorage.getItem(LSP))||{};}catch(e){prog={
    已整章重造 6/5/6 关 → 8/8/8 关。关卡键是"章内序号",章长变了老进度会错位,
    会让重造后的演示课直接显示已通关。所以清掉这三章的旧进度,让孩子重新走一遍(内容是新的)。 */
 (function(){
-  const MK="qz_mig_ld2026";
+  const MK="qz_mig_w1_2026";
   try{
     if(localStorage.getItem(MK))return;
     let n=0;
-    Object.keys(prog).forEach(k=>{ if(/^c3[234]l\d+$/.test(k)){ delete prog[k]; n++; } });
+    Object.keys(prog).forEach(k=>{ if(/^c3[234]l\d+$/.test(k)||/^c5[1234]l\d+$/.test(k)){ delete prog[k]; n++; } });
     if(n){ localStorage.setItem(LSP,JSON.stringify(prog)); console.log('[迁移] 清理旧点杀章进度',n,'条'); }
     localStorage.setItem(MK,"1");
   }catch(e){}
@@ -683,7 +683,7 @@ function doHint(){
   if(!cur||over)return;
   usedHint=true;
   if(cur.t==="lib"){msg(cur.hintText||"气就在棋子的上、下、左、右的空路口！都点一遍！");return;}
-  if(cur.t==="pick"){msg("数一数每块棋的气，气最少的那块最危险！");return;}
+  if(cur.t==="pick"){msg(cur.hintText||"数一数每块棋的气，气最少的那块最危险！");return;}
   if(cur.t==="point"||cur.t==="connect"){const p=cur.t==="point"?(cur.targets?cur.targets[0]:cur.target):cur.best;
     marks=[{c:p[0],r:p[1],t:"hint"}];draw();msg("下在橙色圈圈！"+cur.why);return;}
   if(cur.t==="esc"){marks=[{c:cur.best[0],r:cur.best[1],t:"hint"}];draw();msg("往橙色圈圈逃！"+cur.why);return;}
