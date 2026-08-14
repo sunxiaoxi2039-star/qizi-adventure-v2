@@ -191,6 +191,20 @@ if(window.QK5){
   if(QK5.chapters)QK5.chapters.forEach(ch=>CH.push(ch));
 }
 if(window.QDAN&&QDAN.chapters){QDAN.chapters.forEach(c=>CH.push(c));}
+/* Wave1 六世界重排:章节顺序=解锁顺序(关卡 key 按章 id 不受影响,老进度安全)。
+   世界1=启蒙(双叫吃ch5移出) 世界2=吃子(ch7征子+ch5双叫吃+点心客厅) 世界3=死活
+   世界4=对杀+手筋I(91-96) 世界5=布局+官子(101-105) 世界6=对局阶梯
+   ch63(19路)按拍板移出主线→试炼区;71-84=产品二预告留尾部。列表里没有的 id 原序垫底。 */
+(function(){
+  var ORDER=[1,2,3,4,6, 7,5,21,22,23, 31,32,33,34,35,36, 41,42,43,91,92,93,94,95,96,
+             51,52,53,54,101,102,103,104,105, 61,62, 63,71,72,73,74,75,82,83,84];
+  var pos={};ORDER.forEach(function(id,i){pos[id]=i;});
+  var orig={};CH.forEach(function(c,i){orig[c.id]=i;});   // 排序中不能用 indexOf(会抖)
+  CH.sort(function(a,b){
+    var pa=(a.id in pos)?pos[a.id]:1e3+orig[a.id], pb=(b.id in pos)?pos[b.id]:1e3+orig[b.id];
+    return pa-pb;
+  });
+})();
 if(window.QDEMOS){CH.forEach(c=>{if(QDEMOS[c.id])c.levels=[...QDEMOS[c.id],...c.levels];});}
 const FLAT=[]; CH.forEach(ch=>ch.levels.forEach((lv,i)=>{lv.key="c"+ch.id+"l"+(i+1); lv.ch=ch; FLAT.push(lv);}));
 
@@ -233,7 +247,8 @@ function draw(){
       cx.font=(cell*.5)+"px sans-serif";cx.textAlign="center";cx.fillText("👆",X+cell*.45,Y-cell*.35);}
     else if(m.t==="cand"){cx.strokeStyle="#5B8DD9";cx.lineWidth=4;cx.setLineDash([2,4]);
       cx.beginPath();cx.arc(X,Y,cell*.38,0,7);cx.stroke();cx.setLineDash([]);}
-    else if(m.t==="warn"){cx.font=(cell*.55)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("⚡",X,Y-cell*.55);}}
+    else if(m.t==="warn"){cx.font=(cell*.55)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("⚡",X,Y-cell*.55);}
+    else if(m.t==="house"){cx.font=(cell*.5)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("🏠",X,Y);}}
   if(lastMove){const[c,r,v]=lastMove;
     cx.strokeStyle=v===1?"#fff":"#333";cx.lineWidth=2.5;
     cx.beginPath();cx.arc(px(c),px(r),R*.45,0,7);cx.stroke();}
@@ -551,6 +566,8 @@ async function runDemo(script,tok){
     else if(op==="clear"){marks=[];draw();}
     else if(op==="warn"){marks=[{c:a[0],r:a[1],t:"warn"}];draw();await wait((a[2]||400)*1.5);}
     else if(op==="warn2"){marks.push({c:a[0],r:a[1],t:"warn"});draw();await wait(400);}
+    else if(op==="house"){marks=[{c:a[0],r:a[1],t:"house"}];draw();await wait((a[2]||400)*1.5);}
+    else if(op==="house2"){marks.push({c:a[0],r:a[1],t:"house"});draw();await wait(400);}
     else if(op==="cap"){const g=groupLibs(B,a[0],a[1]);g.stones.forEach(([x,y])=>B[x][y]=0);
       marks=[];sCap();draw();await wait(700);}
   }
@@ -674,7 +691,7 @@ function doHint(){
     if(p){marks=[{c:p[0],r:p[1],t:"hint"}];draw();}
     msg("下在橙色圈圈！"+(dblStep===0?cur.why:cur.why2));return;}
   if(cur.t==="noentry"){msg("找找哪个点四面都被白棋包围——下进去一口气都没有的，就是禁入点！");return;}
-  if(cur.t==="choice"){msg("先看看自己有没有棋子只剩一口气——记住：先救命，再抢地盘！");return;}
+  if(cur.t==="choice"){msg(cur.hintText||"先看看自己有没有棋子只剩一口气——记住：先救命，再抢地盘！");return;}
   if(cur.t==="play"){const h=suggest(B);
     if(h){marks=[{c:h.pt[0],r:h.pt[1],t:"hint"}];draw();msg("下在橙色圈圈！"+h.why,false);say(h.why);}
     else msg("挨着自己的棋下，往气多的地方走！");return;}
