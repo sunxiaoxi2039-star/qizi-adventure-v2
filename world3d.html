@@ -25,7 +25,8 @@
     background-image:url("assets/ui/final/capsule_gold.png?v=1")!important;background-color:#F2C76E!important;
     color:#7a5a16!important;text-shadow:none;}
   /* ===== 3D课堂(class3d):课程UI变透明浮层,棋盘由教室桌面接管 ===== */
-  body.class3d #qzApp{background:transparent!important;pointer-events:none;}
+  body.class3d #qzApp{background:transparent!important;pointer-events:none;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
   body.class3d #qzApp #bubble,body.class3d #qzApp button,body.class3d #qzApp .big,
   body.class3d #qzApp .chip,body.class3d #qzApp .node,body.class3d #qzApp .pill,
   body.class3d #qzApp .pdot,body.class3d #qzApp select{pointer-events:auto;}
@@ -33,6 +34,8 @@
   body.class3d #game canvas{position:fixed!important;left:-9999px!important;top:0!important;}
   body.class3d #pathbar,body.class3d #rankbar,body.class3d #rankNote{display:none!important;}
   body.class3d #qzApp header{background:transparent;}
+  body.class3d #qzApp .ttl{visibility:hidden;}   /* 教室里不需要重复大标题(和3D HUD 重影) */
+  body.class3d #hint{display:none!important;}    /* 走路提示条在教室里没意义,还压字 */
   body.class3d #bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:62;
     width:calc(100vw - 28px);max-width:560px;margin:0;}
   body.class3d #game .btnrow{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:62;margin:0;white-space:nowrap;}
@@ -421,7 +424,7 @@
 <script src="world_decor.js?v=1" onerror="this.remove()"></script>
 <script src="world_board.js?v=2" onerror="this.remove()"></script>
 <script src="world_zones.js?v=1" onerror="this.remove()"></script>
-<script src="qz-class3d.js?v=1" onerror="this.remove()"></script>
+<script src="qz-class3d.js?v=2" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
 <script type="module">
@@ -1751,19 +1754,108 @@ if(ROMP.on)startRomp();
 /* ?ch= 深链:直接展开课程浮层(撒欢模式除外) */
 {const chDeep=new URLSearchParams(location.search).get('ch');
  if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
-/* 🛠 开发者跳关器(?all=1):顶部下拉,随时去任意一章 */
+/* 🛠 验收工具(?all=1):①分世界下拉 ②🗺 全景总览面板(六世界→章→单集,点单集直进3D教室) */
 if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
+  /* 六世界↔章节 id 映射(与 rangeOfIds 的分组一字不差;试炼浮岛=产品二预留) */
+  const QA_WORLDS=[
+    {n:'世界1 雪村 · 气球村',sub:'25K→20K 气与吃子',ids:[1,2,3,4,6],tp:[-44,4],c:'#7FB4D8'},
+    {n:'世界2 雪地启程 · 点心客厅',sub:'20K→15K 高级吃子',ids:[7,5,21,22,23],tp:[-22,4],c:'#9AB8C9'},
+    {n:'世界3 天空花园 · 生命之泉',sub:'15K→12K 死活做眼',ids:[31,32,33,34,35,36],tp:[72,14],c:'#8FB878'},
+    {n:'世界4 月兔星海 · 对杀谷',sub:'12K→8K 对杀与手筋',ids:[41,42,43,91,92,93,94,95,96],tp:[96,-21],c:'#8B9DD0'},
+    {n:'世界5 日光圣殿 · 兔祖师圣殿',sub:'8K→5K 布局与官子',ids:[51,52,53,54,101,102,103,104,105],tp:[44,4],c:'#D8B15E'},
+    {n:'世界6 丰盛庆典 · 天空城',sub:'5K→冲段 对局阶梯',ids:[61,62,82,83,84],tp:[138,-34],c:'#C98FA8'},
+    {n:'预告 · 试炼浮岛(产品二)',sub:'1D后 高段试炼',ids:[63,71,72,73,74,75],tp:[-138,-34],c:'#A9A9C9'},
+  ];
+  const chById=id=>CH.find(c=>c.id===id);
+  const mapped=new Set();QA_WORLDS.forEach(w=>w.ids.forEach(i=>mapped.add(i)));
+  const orphans=CH.filter(c=>!mapped.has(c.id));           // 没归世界的章兜底展示,绝不吞
+  if(orphans.length)QA_WORLDS.push({n:'📦 其他(未归世界)',sub:'',ids:orphans.map(c=>c.id),tp:null,c:'#BBB'});
+  const diskProg=()=>{try{return JSON.parse(localStorage.getItem('qz2_prog'))||{};}catch(e){return{};}};
+
+  /* —— 顶部工具条:🗺 总览按钮 + 分世界下拉 —— */
   const wrap=document.createElement('div');
   wrap.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:45;'+
-    'background:rgba(251,249,244,.96);border-radius:999px;padding:6px 12px;display:flex;gap:7px;align-items:center;'+
-    'box-shadow:0 2px 10px rgba(120,80,20,.16);font-family:inherit;max-width:88vw;';
-  const lab=document.createElement('span');lab.textContent='🛠';lab.style.fontSize='16px';lab.style.flex='none';
+    'background:rgba(251,249,244,.96);border-radius:999px;padding:6px 12px;display:flex;gap:8px;align-items:center;'+
+    'box-shadow:0 2px 10px rgba(120,80,20,.16);font-family:inherit;max-width:92vw;';
+  const btnMap=document.createElement('button');
+  btnMap.textContent='🗺 总览';
+  btnMap.style.cssText='border:none;background:#F2C76E;color:#6b4c12;font-weight:900;font-size:13px;'+
+    'font-family:inherit;border-radius:999px;padding:5px 12px;cursor:pointer;flex:none;';
   const sel=document.createElement('select');
-  sel.style.cssText='border:none;background:transparent;color:#7a5a2a;font-weight:800;font-size:13px;font-family:inherit;max-width:74vw;cursor:pointer;';
-  const def=document.createElement('option');def.value='';def.textContent='跳到任意一关…';sel.appendChild(def);
-  CH.forEach((c,i)=>{const o=document.createElement('option');o.value=c.id;o.textContent=(i+1)+'. '+(c.name||('第'+c.id+'章'));sel.appendChild(o);});
-  sel.onchange=()=>{if(sel.value&&window.QZ){QZ.openChapter(+sel.value);sel.blur();}};
-  wrap.appendChild(lab);wrap.appendChild(sel);document.body.appendChild(wrap);
+  sel.style.cssText='border:none;background:transparent;color:#7a5a2a;font-weight:800;font-size:13px;font-family:inherit;max-width:56vw;cursor:pointer;';
+  const def=document.createElement('option');def.value='';def.textContent='🛠 跳到任意一章…';sel.appendChild(def);
+  QA_WORLDS.forEach(w=>{
+    const og=document.createElement('optgroup');og.label=w.n+(w.sub?' · '+w.sub:'');
+    w.ids.forEach(id=>{const c=chById(id);if(!c)return;
+      const o=document.createElement('option');o.value=c.id;
+      o.textContent=(c.name||('第'+c.id+'章'))+'('+c.levels.length+'关)';og.appendChild(o);});
+    sel.appendChild(og);
+  });
+  sel.onchange=()=>{if(sel.value&&window.QZ){QZ.openChapter(+sel.value);sel.blur();sel.value='';}};
+  wrap.appendChild(btnMap);wrap.appendChild(sel);document.body.appendChild(wrap);
+
+  /* —— 🗺 全景总览面板(领导验收专用,孩子看不到:只挂在 ?all=1) —— */
+  const ovl=document.createElement('div');
+  ovl.style.cssText='position:fixed;inset:0;z-index:70;display:none;overflow:auto;'+
+    'background:rgba(28,24,18,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);';
+  const card=document.createElement('div');
+  card.style.cssText='max-width:860px;margin:4vh auto 6vh;background:#FBF9F4;border-radius:22px;'+
+    'padding:20px 22px 26px;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:inherit;color:#5a4632;';
+  ovl.appendChild(card);document.body.appendChild(ovl);
+  ovl.onclick=e=>{if(e.target===ovl)ovl.style.display='none';};
+  function tEmo(t){return t==='demo'?'🎬':t==='play'?'⚔️':'🎯';}
+  function buildOverview(){
+    const prog=diskProg();
+    const allLv=window.__qz&&__qz.list?__qz.list().map(s=>{const[a,b,...n]=s.split(':');return{key:a,t:b,name:n.join(':')};}):[];
+    const lvByCh={};allLv.forEach(l=>{const m=l.key.match(/^c(\d+)l/);if(m)(lvByCh[m[1]]=lvByCh[m[1]]||[]).push(l);});
+    let totC=0,totL=0,totDone=0;
+    let html='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+      '<span style="font-size:21px;font-weight:900;color:#B5651D">🗺 全景总览</span>'+
+      '<span id="qaTot" style="font-size:13px;color:#8a7a68"></span>'+
+      '<button id="qaClose" style="margin-left:auto;border:none;background:#EEE5D6;border-radius:999px;'+
+      'width:34px;height:34px;font-size:16px;cursor:pointer;">✕</button></div>'+
+      '<div style="font-size:12px;color:#8a7a68;margin:6px 0 14px">点任意一关直接进 3D 教室 · 「🚶带我去」传送到那个世界逛逛 · ⭐=这台机器的真实通关进度</div>';
+    QA_WORLDS.forEach((w,wi)=>{
+      const chs=w.ids.map(chById).filter(Boolean);
+      const nLv=chs.reduce((s,c)=>s+(lvByCh[c.id]||[]).length,0);
+      const nDone=chs.reduce((s,c)=>s+(lvByCh[c.id]||[]).filter(l=>prog[l.key]).length,0);
+      totC+=chs.length;totL+=nLv;totDone+=nDone;
+      html+='<div style="margin:14px 0 6px;padding:10px 12px;border-left:6px solid '+w.c+';background:#fff;border-radius:12px;'+
+        'display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+        '<b style="font-size:15px">'+w.n+'</b><span style="font-size:12px;color:#8a7a68">'+w.sub+' · '+chs.length+'章 '+nLv+'关 · ⭐'+nDone+'/'+nLv+'</span>'+
+        (w.tp?'<button data-tp="'+wi+'" style="margin-left:auto;border:none;background:'+w.c+';color:#fff;font-weight:800;'+
+        'border-radius:999px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:12px;">🚶 带我去</button>':'')+'</div>';
+      chs.forEach(c=>{
+        const ls=lvByCh[c.id]||[];
+        html+='<div style="margin:4px 0 8px 14px;"><span style="font-weight:800;font-size:13px;">'+(c.name||('第'+c.id+'章'))+
+          '</span><span style="font-size:11px;color:#a99a86"> #'+c.id+'</span><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">';
+        ls.forEach(l=>{
+          const done=!!prog[l.key];
+          html+='<button data-lv="'+l.key+'" style="border:none;border-radius:999px;padding:3px 9px;cursor:pointer;'+
+            'font-family:inherit;font-size:12px;font-weight:700;color:#5a4632;'+
+            'background:'+(done?'#F6E7B8':'#F2EEE6')+';">'+tEmo(l.t)+' '+l.name+(done?' ⭐':'')+'</button>';
+        });
+        html+='</div></div>';
+      });
+    });
+    card.innerHTML=html;
+    card.querySelector('#qaTot').textContent=QA_WORLDS.length+'个区域 · '+totC+'章 · '+totL+'关 · ⭐'+totDone+'/'+totL;
+    card.querySelector('#qaClose').onclick=()=>{ovl.style.display='none';};
+    card.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{
+      ovl.style.display='none';
+      if(window.QZ)QZ.openLevel(b.dataset.lv);
+    });
+    card.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{
+      const w=QA_WORLDS[+b.dataset.tp];if(!w.tp)return;
+      ovl.style.display='none';
+      if(window.QZ&&document.getElementById('qzApp').classList.contains('on'))QZ.close();
+      player.position.set(w.tp[0],0,w.tp[1]);target.copy(player.position);moving=false;
+      camPos.set(player.position.x+Math.sin(camYaw)*camDist,1.6+camDist*.72,player.position.z+Math.cos(camYaw)*camDist);
+      cam.position.copy(camPos);
+    });
+  }
+  btnMap.onclick=()=>{buildOverview();ovl.style.display='block';};
+  window.__qaPos=()=>[+player.position.x.toFixed(1),+player.position.z.toFixed(1)]; // QA探针:验证传送没被栓绳拽回
 }
 function pClickGrid(i,j){
   if(!playMode||pOver||pBusy)return;

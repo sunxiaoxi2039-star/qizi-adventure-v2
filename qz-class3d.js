@@ -34,13 +34,12 @@ window.QZ_CLASS3D_INSTALL = function (D) {
         new THREE.MeshStandardMaterial({ color: 0xB98F5E, roughness: .8 }));
       leg.position.set(a * (BW / 2 - .2), (TABLE_H - .5) / 2, b * (BW / 2 - .2)); g.add(leg);
     });
-    /* 棋盘面 = 引擎画布贴图(引擎是唯一画师) */
-    const cv = document.getElementById("bd");
-    S.tex = new THREE.CanvasTexture(cv);
-    S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
-    /* 棋盘面用不受光材质:引擎画什么就显示什么(受光会被顶光压暗成一块黑板) */
+    /* 棋盘面 = 引擎画布贴图(引擎是唯一画师)。
+       ⚠️ 开课前画布常是 0×0:此时不能挂贴图(空图上传=纯黑大板,章节卡背后很吓人),
+       先用奶油素色顶着,tick() 检测到画布已排版才挂图并把底色切回白。 */
+    S.tex = null;
     S.boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(BW, BW),
-      new THREE.MeshBasicMaterial({ map: S.tex }));
+      new THREE.MeshBasicMaterial({ color: 0xF0E2C8 }));
     S.boardMesh.rotation.x = -Math.PI / 2;
     S.boardMesh.position.set(CX, TABLE_H + .02, CZ);
     S.boardMesh.receiveShadow = true; scene.add(S.boardMesh);
@@ -115,7 +114,8 @@ window.QZ_CLASS3D_INSTALL = function (D) {
         S.tex && S.tex.dispose();
         S.tex = new THREE.CanvasTexture(cv);
         S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
-        S.boardMesh.material.map = S.tex; S.boardMesh.material.needsUpdate = true;
+        S.boardMesh.material.map = S.tex; S.boardMesh.material.color.set(0xffffff);
+        S.boardMesh.material.needsUpdate = true;
       }
       if (S.tex) S.tex.needsUpdate = true;      // 引擎每画一帧,桌面跟着变
       const now = performance.now();
