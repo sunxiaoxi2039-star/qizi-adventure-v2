@@ -53,6 +53,9 @@
     font-size:15px;color:#7a5a2a;box-shadow:0 4px 16px rgba(90,60,20,.25);align-items:center;gap:7px;}
   #bigExit .em{font-size:21px;line-height:1;}
   #bigExit:active{transform:scale(.94);}
+  /* 暗角(awwwards 级包裹感):极淡的暖色四角,把视线收回画面中心 */
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at 50% 42%,transparent 56%,rgba(70,50,25,.15) 100%);}
   body.class3d #bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:62;
     width:calc(100vw - 28px);max-width:560px;margin:0;}
   body.class3d #game .btnrow{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:62;margin:0;white-space:nowrap;}
@@ -463,14 +466,19 @@ renderer.toneMappingExposure=1.12;
 app.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x6FB4EA);
-scene.fog=new THREE.Fog(0xE4F1FB,55,150);
+/* COZY(awwwards 校准,默认开;?cozy=0 回旧"广阔"观感做A/B):
+   雾泡收紧=小世界被包裹感 / 相机放低拉近=在场景里不是看地图 / 沿路道具节拍=杀留白 */
+const COZY=!/[?&]cozy=0/.test(location.search);
+scene.fog=new THREE.Fog(0xE4F1FB,COZY?30:55,COZY?95:150);
 /* 分区环境系统 v2:world_zones.js 每区可带 fogTint/skyTint/sunI/sunTint/hemiI/night,
    玩家走进某区,雾/天空/太阳/半球光/夜色因子一起缓动——星海=深夜靛蓝+星空+月亮,
    圣殿=破晓金,庆典=金色庆典(对齐 callen 六世界设计图的"换气候")。
    天空从 pano 贴图改为纯色插值(pano 只留 environment 供反射):贴图没法在
    连续大陆上按区渐变,纯色+雾更贴白瓷软陶的干净底子。 */
-const ENV_DEFAULT={fog:new THREE.Color(0xE4F1FB),sky:new THREE.Color(0x6FB4EA),
-  sunI:2.1,sunC:new THREE.Color(0xFFF3E0),hemiI:1.05};
+/* 雾色定律(three 官方+bruno 同款):雾色必须贴近天空色,远物才会"熔进天"而不是蒙灰 */
+const ENV_DEFAULT={fog:new THREE.Color(COZY?0xBFD9F2:0xE4F1FB),sky:new THREE.Color(0x6FB4EA),
+  sunI:2.1,sunC:new THREE.Color(0xFFF3E0),hemiI:1.05,
+  fogN:COZY?30:55,fogF:COZY?95:150};
 const envT={fog:new THREE.Color(),sky:new THREE.Color(),sunC:new THREE.Color(),sunI:0,hemiI:0,night:0};
 let NIGHT=0;
 function updateZoneTint(px,pz,dt){
@@ -489,6 +497,9 @@ function updateZoneTint(px,pz,dt){
   envT.night=(p&&p.night)?p.night:0;
   const k=Math.min(1,dt*2.2),k2=Math.min(1,dt*1.3);
   scene.fog.color.lerp(envT.fog,k);
+  const fn=(p&&p.fogN!=null&&COZY)?p.fogN:ENV_DEFAULT.fogN,
+        ff=(p&&p.fogF!=null&&COZY)?p.fogF:ENV_DEFAULT.fogF;
+  scene.fog.near+=(fn-scene.fog.near)*k2;scene.fog.far+=(ff-scene.fog.far)*k2;
   scene.background&&scene.background.isColor&&scene.background.lerp(envT.sky,k2);
   sun.intensity+=(envT.sunI-sun.intensity)*k2;
   sun.color.lerp(envT.sunC,k2);
@@ -511,7 +522,8 @@ function updateZoneTint(px,pz,dt){
 new THREE.TextureLoader().load('assets/v2/sky_pano.jpg?v=2',t=>{
   t.mapping=THREE.EquirectangularReflectionMapping;t.colorSpace=THREE.SRGBColorSpace;
   scene.environment=t;},undefined,()=>{});
-const cam=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,.1,400);
+/* far=150:雾到95已全遮,150外没有东西该被看见(bruno-simon far=80 的同款纪律,顺省渲染) */
+const cam=new THREE.PerspectiveCamera(COZY?42:46,innerWidth/innerHeight,.1,COZY?150:400);
 const hemi=new THREE.HemisphereLight(0xCFE6FF,0xFFF6EA,1.05);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xFFF3E0,2.1);
 sun.position.set(24,38,18);sun.castShadow=true;
@@ -1239,7 +1251,7 @@ function stepIntro(dt){
                              62,
                              player.position.z+Math.cos(camYaw)*camDist*0.35);
   const lo=new THREE.Vector3(player.position.x+Math.sin(camYaw)*camDist,
-                             1.6+camDist*.72,
+                             camH(),
                              player.position.z+Math.cos(camYaw)*camDist);
   camPos.lerpVectors(hi,lo,e);
   cam.position.copy(camPos);
@@ -1649,7 +1661,7 @@ window.QZ_HOST={
   hide(){document.getElementById('qzApp').classList.remove('on');
     if(CLASS3D){CLASS3D.exit();
       /* 硬切回兔子身后 */
-      camPos.set(player.position.x+Math.sin(camYaw)*camDist,1.6+camDist*.72,player.position.z+Math.cos(camYaw)*camDist);
+      camPos.set(player.position.x+Math.sin(camYaw)*camDist,camH(),player.position.z+Math.cos(camYaw)*camDist);
       cam.position.copy(camPos);}
     try{prog=JSON.parse(localStorage.getItem('qz2_prog'))||{};refreshStations();}catch(e){}},
   romp(backKey){this.hide();
@@ -1834,6 +1846,7 @@ if(ROMP.on)startRomp();
 /* ?ch= 深链:直接展开课程浮层(撒欢模式除外) */
 {const chDeep=new URLSearchParams(location.search).get('ch');
  if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
+if(COZY){const v=document.createElement('div');v.id='vig';document.body.appendChild(v);}
 /* 大出口(所有人都有,不只 ?all=1):课程浮层一开就出现,点了回 3D 世界 */
 {const bigExit=document.createElement('button');bigExit.id='bigExit';
  /* 调研定式(Toca Life World):出口画的是"目的地"——雪村大道缩略图,不是抽象X */
@@ -1854,7 +1867,7 @@ if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
     {n:'世界1 雪村 · 气球村',sub:'25K→20K 气与吃子',ids:[1,2,3,4,6],tp:[-44,4],c:'#7FB4D8'},
     {n:'世界2 雪地启程 · 点心客厅',sub:'20K→15K 高级吃子',ids:[7,5,21,22,23],tp:[-22,4],c:'#9AB8C9'},
     {n:'世界3 天空花园 · 生命之泉',sub:'15K→12K 死活做眼',ids:[31,32,33,34,35,36],tp:[72,14],c:'#8FB878'},
-    {n:'世界4 月兔星海 · 对杀谷',sub:'12K→8K 对杀与手筋',ids:[41,42,43,91,92,93,94,95,96],tp:[96,-21],c:'#8B9DD0'},
+    {n:'世界4 月兔星海 · 对杀谷',sub:'12K→8K 对杀与手筋',ids:[41,42,43,91,92,93,94,95,96],tp:[94,-19],c:'#8B9DD0'},
     {n:'世界5 日光圣殿 · 兔祖师圣殿',sub:'8K→5K 布局与官子',ids:[51,52,53,54,101,102,103,104,105],tp:[44,4],c:'#D8B15E'},
     {n:'世界6 丰盛庆典 · 天空城',sub:'5K→冲段 对局阶梯',ids:[61,62,82,83,84],tp:[138,-34],c:'#C98FA8'},
     {n:'预告 · 试炼浮岛(产品二)',sub:'1D后 高段试炼',ids:[63,71,72,73,74,75],tp:[-138,-34],c:'#A9A9C9'},
@@ -1943,7 +1956,8 @@ if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
       ovl.style.display='none';
       if(window.QZ&&document.getElementById('qzApp').classList.contains('on'))QZ.close();
       player.position.set(w.tp[0],0,w.tp[1]);target.copy(player.position);moving=false;
-      camPos.set(player.position.x+Math.sin(camYaw)*camDist,1.6+camDist*.72,player.position.z+Math.cos(camYaw)*camDist);
+      if(w.yaw!=null)camYaw=w.yaw;   // 传送落地给一个取景好的朝向,不对着空坡
+      camPos.set(player.position.x+Math.sin(camYaw)*camDist,camH(),player.position.z+Math.cos(camYaw)*camDist);
       cam.position.copy(camPos);
       updateZoneTint(player.position.x,player.position.z,99); // 传送=环境直接快照到位,不慢慢换天
     });
@@ -1979,12 +1993,15 @@ function pClickGrid(i,j){
 
 const ray=new THREE.Raycaster();
 const target=player.position.clone();
-let moving=false,camYaw=1.26,camDist=9;
+let moving=false,camYaw=1.26,camDist=COZY?7.5:9;
+/* 相机高度:COZY=放低俯角(~32°,在场景里);旧值=42°俯瞰看地图 */
+const camH=()=>COZY?(1.15+camDist*.52):(1.6+camDist*.72);
+const CAM_MAX=COZY?32:45;
 const keys={};
 addEventListener('keydown',e=>{keys[e.key]=true;
   if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.key]=false;});
-addEventListener('wheel',e=>{camDist=Math.min(45,Math.max(5.5,camDist+e.deltaY*.012));},{passive:true});
+addEventListener('wheel',e=>{camDist=Math.min(CAM_MAX,Math.max(5.5,camDist+e.deltaY*.012));},{passive:true});
 const pts=new Map();let pinchD=0;
 let pdX=0,pdY=0,dragging=false,downOnCanvas=false;
 renderer.domElement.addEventListener('pointerdown',e=>{
@@ -1997,7 +2014,7 @@ renderer.domElement.addEventListener('pointermove',e=>{
   if(pts.has(e.pointerId))pts.set(e.pointerId,[e.clientX,e.clientY]);
   if(pts.size===2){
     const a=[...pts.values()];const d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);
-    if(pinchD>0)camDist=Math.min(45,Math.max(5.5,camDist-(d-pinchD)*.05));
+    if(pinchD>0)camDist=Math.min(CAM_MAX,Math.max(5.5,camDist-(d-pinchD)*.05));
     pinchD=d;dragging=true;return;
   }
   if(!downOnCanvas)return;
@@ -2056,6 +2073,20 @@ CAM_BLOCKERS.push({x:0,z:-64,r:17,h:13});   // 圣殿雕像
 CAM_BLOCKERS.push({x:40,z:-3,r:1.9,h:4.3}); // 灯塔旁祖师小像
 CAM_BLOCKERS.push({x:138,z:-48,r:11,h:17}); // 天空城宫殿
 /* ===== 装饰运行时(B卖相计划):读 world_decor.js 纯数据摆件;引擎/逻辑零改动 ===== */
+/* ⚠️ 旧签名漏了 y:world_decor 里 7 座 prop_isle 写着 y=5..12,全被拍到地上,
+      还因 h>=3 自动加碰撞 → 变成挡路的隐形墙。现在支持悬空,并让浮空件参与呼吸。
+   (提升到顶层:大道的沿路道具节拍也要用它,不能锁在 WORLD_DECOR 块作用域里) */
+function decorProp(model,x,y,z,h,ry){
+  newGLTF().load('assets/models/'+model,g=>{
+    const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+    const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y||1,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
+    const k=h/hh;sc.scale.setScalar(k);sc.position.set(x-cx*k,(y||0)-b.min.y*k,z-cz*k);
+    sc.rotation.y=(ry||0)+(PROP_ROT[model.replace(/^prop_|\.glb$/g,'')]||0);
+    if(model.indexOf('mushroom')>=0&&window.pinkifyMushroom)pinkifyMushroom(sc); // 装饰里的蘑菇同样去红
+    scene.add(sc);
+    if(y>0)FLOAT_DECOS.push({g:sc,y0:sc.position.y,ph:(x+z)%6.28}); // 悬空件跟着云一起呼吸
+  },undefined,()=>{});
+}
 if(window.WORLD_DECOR){
   const NO_GO=[...STATIONS.map(st=>({x:st.x,z:st.z,r:7})),
     ...PORTALS.map(p=>({x:p.x,z:p.z,r:6})),{x:0,z:-16,r:6},{x:0,z:-64,r:18},{x:138,z:-48,r:4}];
@@ -2063,19 +2094,6 @@ if(window.WORLD_DECOR){
     !(h>1.4 && z>0&&z<10&&Math.abs(x)<50); // 通道带只许低矮物
   const SAGE=new THREE.MeshStandardMaterial({color:0xA8BC82,roughness:.86}); // 合同苔绿基线
   const PURE=new THREE.MeshStandardMaterial({color:0xFCFDFF,roughness:.97});
-  /* ⚠️ 旧签名漏了 y:world_decor 里 7 座 prop_isle 写着 y=5..12,全被拍到地上,
-        还因 h>=3 自动加碰撞 → 变成挡路的隐形墙。现在支持悬空,并让浮空件参与呼吸。 */
-  function decorProp(model,x,y,z,h,ry){
-    newGLTF().load('assets/models/'+model,g=>{
-      const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-      const b=new THREE.Box3().setFromObject(sc);const hh=b.max.y-b.min.y||1,cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2;
-      const k=h/hh;sc.scale.setScalar(k);sc.position.set(x-cx*k,(y||0)-b.min.y*k,z-cz*k);
-      sc.rotation.y=(ry||0)+(PROP_ROT[model.replace(/^prop_|\.glb$/g,'')]||0);
-      if(model.indexOf('mushroom')>=0&&window.pinkifyMushroom)pinkifyMushroom(sc); // 装饰里的 5 朵蘑菇同样去红
-      scene.add(sc);
-      if(y>0)FLOAT_DECOS.push({g:sc,y0:sc.position.y,ph:(x+z)%6.28}); // 悬空件跟着云一起呼吸
-    },undefined,()=>{});
-  }
   let placed=0,skipped=0;
   Object.values(WORLD_DECOR).forEach(list=>{
     if(!Array.isArray(list))return;
@@ -2185,6 +2203,28 @@ if(!/[?&]board=0/.test(location.search)&&window.WORLD_BOARD){
       const p=curve.getPointAt(t);
       const dot=new THREE.Mesh(new THREE.CylinderGeometry(.8,.8,.08,14),PATHM);
       dot.position.set(p.x,.13,p.z);dot.receiveShadow=true;scene.add(dot);
+    }
+    /* 沿路道具节拍(COZY,awwwards 密度回填):按世界配道具族,左右交替+抖动,
+       横向 6~9.5m(走廊外),小件不进碰撞;避开车站/传送门 8m */
+    if(COZY){
+      const FAM={1:['prop_lantern.glb','prop_tree.glb','prop_stone_white.glb','prop_bush.glb'],
+        2:['prop_tree.glb','prop_stone_white.glb','prop_lantern.glb'],
+        3:['prop_bush.glb','prop_mushroom.glb','prop_tree.glb','prop_stone_white.glb'],
+        4:['prop_lantern.glb','prop_stone_white.glb','prop_stone_black.glb'],
+        5:['prop_lantern.glb','prop_stone_white.glb','prop_tree.glb'],
+        6:['prop_mushroom.glb','prop_lantern.glb','prop_bush.glb']}[seg.world]||
+        ['prop_tree.glb','prop_stone_white.glb'];
+      let side=1;
+      for(let t=.04;t<1;t+=(6.5+rnd()*2.5)/L){
+        side*=-1;
+        const p=curve.getPointAt(t),off=lat(t).multiplyScalar(side*(6+rnd()*3.5));
+        const x=p.x+off.x,z=p.z+off.z;
+        if(typeof STATIONS!=='undefined'&&STATIONS.some(s=>Math.hypot(x-s.x,z-s.z)<8))continue;
+        if(typeof PORTALS!=='undefined'&&PORTALS.some(s=>Math.hypot(x-s.x,z-s.z)<7))continue;
+        const m=FAM[Math.floor(rnd()*FAM.length)];
+        const h=m.includes('tree')?2.2+rnd()*1.6:m.includes('lantern')?1.5+rnd()*.5:.9+rnd()*.9;
+        decorProp(m,x,0,z,h,rnd()*6.28);
+      }
     }
     /* 编号小屋(跨段连续编号)*/
     hutTs.forEach((t,i)=>{
@@ -2387,7 +2427,7 @@ function step(now){
   }else stuckMs=0;
   stuckPX=player.position.x;stuckPZ=player.position.z;
   /* 俯角:合同要求 35-45° 玩具世界视角。旧式 2.4+d*.30 只有 8.2°(近乎平视) */
-  const hh=1.6+camDist*.72;
+  const hh=camH();
   let want,look;
   if(playMode){want=new THREE.Vector3(0,15.5,-4);look=new THREE.Vector3(0,.7,-17);}
   else if(CLASS3D&&CLASS3D.active){want=new THREE.Vector3();look=new THREE.Vector3();CLASS3D.cam(want,look);}
