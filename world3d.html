@@ -53,6 +53,10 @@
     font-size:15px;color:#7a5a2a;box-shadow:0 4px 16px rgba(90,60,20,.25);align-items:center;gap:7px;}
   #bigExit .em{font-size:21px;line-height:1;}
   #bigExit:active{transform:scale(.94);}
+  #edgeToast{position:fixed;left:50%;bottom:130px;transform:translateX(-50%);z-index:58;
+    background:rgba(251,249,244,.95);color:#7a5a2a;font-weight:800;font-size:14px;
+    padding:9px 18px;border-radius:999px;box-shadow:0 4px 14px rgba(90,60,20,.22);
+    opacity:0;transition:opacity .35s;pointer-events:none;white-space:nowrap;}
   /* 暗角(awwwards 级包裹感):极淡的暖色四角,把视线收回画面中心 */
   #vig{position:fixed;inset:0;pointer-events:none;z-index:5;
     background:radial-gradient(ellipse at 50% 42%,transparent 56%,rgba(70,50,25,.15) 100%);}
@@ -1964,6 +1968,7 @@ if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
   }
   btnMap.onclick=()=>{buildOverview();ovl.style.display='block';};
   window.__qaPos=()=>[+player.position.x.toFixed(1),+player.position.z.toFixed(1)]; // QA探针:验证传送没被栓绳拽回
+  window.__fall=()=>({on:FALL.on,k:FALL.kind,t:+FALL.t.toFixed(2),ret:FALL.ret&&[+FALL.ret.x.toFixed(1),+FALL.ret.z.toFixed(1)]});
 }
 function pClickGrid(i,j){
   if(!playMode||pOver||pBusy)return;
@@ -2232,24 +2237,27 @@ if(!/[?&]board=0/.test(location.search)&&window.WORLD_BOARD){
       const p=curve.getPointAt(t),side=n%2?-1:1,off=lat(t).multiplyScalar(side*3.1);
       const hx=p.x+off.x,hz=p.z+off.z;
       const dc=new THREE.Vector3(p.x-hx,0,p.z-hz).normalize();
-      hutSpots.push([hx,hz,Math.atan2(dc.x,dc.z),n]);
+      hutSpots.push([hx,hz,Math.atan2(dc.x,dc.z),n,seg.world]);
       const ns=numSprite(n);ns.position.set(hx,3.3,hz);scene.add(ns);
       COLLIDERS.push({x:hx,z:hz,r:1.9});
       const back=lat(t).multiplyScalar(-side*3.5);
-      if(n%2===1)lampSpots.push([p.x+back.x,p.z+back.z]);
+      if(n%2===1)lampSpots.push([p.x+back.x,p.z+back.z,seg.world]);
       else if(n%4===2)treeSpots.push([p.x+back.x,p.z+back.z,3.1+rnd()*.8]);
     });
   }
-  /* 关卡小屋=村里同款白瓷雪屋,五色轻染,门朝大路 */
-  loadProp('yurt',()=>{hutSpots.forEach(([x,z,ang,n])=>{
+  /* 关卡小屋=同款白瓷雪屋,但釉色按【世界】上,不再按编号轮转——
+     一个世界一个身份色(领导:"外观太像"),白瓷是瓷,世界色是釉 */
+  const WORLD_GLAZE={1:0xF0A860,2:0x9CC8E8,3:0xA8CC90,4:0xF0D898,5:0xE0B460,6:0xE08878};
+  loadProp('yurt',()=>{hutSpots.forEach(([x,z,ang,n,w])=>{
     let h=propInstance('yurt',2.7);
     if(!h)return;
-    h=tintClone(h,STATION_TINT[n%STATION_TINT.length],.16);
+    h=tintClone(h,WORLD_GLAZE[w]||STATION_TINT[n%STATION_TINT.length],.34);
     h.position.set(x,0,z);h.rotation.y=ang;
     h.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     scene.add(h);});});
-  loadProp('lantern',()=>{lampSpots.forEach(([x,z])=>{
-    const ln=propInstance('lantern',1.7);if(!ln)return;
+  loadProp('lantern',()=>{lampSpots.forEach(([x,z,w])=>{
+    let ln=propInstance('lantern',1.7);if(!ln)return;
+    if(WORLD_GLAZE[w])ln=tintClone(ln,WORLD_GLAZE[w],.24);
     ln.position.set(x,0,z);scene.add(ln);COLLIDERS.push({x,z,r:.55});});});
   loadProp('tree',()=>{treeSpots.forEach(([x,z,h])=>{
     const tr=propInstance('tree',h);if(!tr)return;
@@ -2368,20 +2376,110 @@ function collide(){
     let zc=null,zd=1e9;
     for(const c of ZONE_CENTERS){const d=Math.hypot(player.position.x-c[0],player.position.z-c[1]);if(d<zd){zd=d;zc=c;}}
     /* 新六世界分区(天空花园/月兔星海等)同样是可行走圈 */
-    let inWZ=false;
+    let inWZ=false,nearWZ=null;
     {const WZ=window.WORLD_ZONES&&window.WORLD_ZONES.zones;
-     if(WZ)for(const z of WZ){if(z.center&&Math.hypot(player.position.x-z.center[0],player.position.z-z.center[1])<=(z.radius||15)){inWZ=true;break;}}}
+     if(WZ)for(const z of WZ){if(!z.center)continue;
+       const d=Math.hypot(player.position.x-z.center[0],player.position.z-z.center[1]);
+       if(d<=(z.radius||15)){inWZ=true;nearWZ=z;break;}
+       if(d<=(z.radius||15)+10&&!nearWZ)nearWZ=z;}}
     let bd=1e9,bp=null;
     if(BOARD_PTS){const bn=boardNear(player.position.x,player.position.z);bd=bn.d;bp=bn.p;}
-    if((zc&&zd<=25)||inWZ){/* 在分区活动圈内 */}
-    else if(bd<=BOARD_W){/* 云堤走廊上 */}
-    else if(bd<=BOARD_W+6){const f=BOARD_W/bd;
-      player.position.x=bp.x+(player.position.x-bp.x)*f;player.position.z=bp.z+(player.position.z-bp.z)*f;}
-    else if(zc&&zd<=48){const f=25/zd;
-      player.position.x=zc[0]+(player.position.x-zc[0])*f;player.position.z=zc[1]+(player.position.z-zc[1])*f;}
-    else{player.position.x*=76/dd;player.position.z*=76/dd;}
+    /* ⚠️ 掉落区没有隐形拽绳(旧钳制会把人钉在掉落线前永远掉不下去):
+       走出边=真掉落,掉落动画自己把人送回路上,自我修正 */
+    if((zc&&zd<=25)||inWZ){
+      /* 星海圈内但离开栈道=走进湖里 → 掉海(领导:"得能掉入海中") */
+      if(inWZ&&nearWZ&&nearWZ.night&&bd>BOARD_W+1.8&&bp)startFall('sea',bp);
+    }
+    else if(bd<=BOARD_W+.8){/* 云堤走廊上(含0.8宽容带) */}
+    else if(bd<=BOARD_W+7){
+      if(bp)startFall(nearWZ&&nearWZ.night?'sea':'cloud',bp);
+    }
+    else if(zc&&zd<=48){
+      startFall('cloud',{x:zc[0]+(player.position.x-zc[0])*23/zd,z:zc[1]+(player.position.z-zc[1])*23/zd});
+    }
+    else{player.position.x*=76/dd;player.position.z*=76/dd;
+      edgeToast('❄️ 雪原到边啦,回头看看路吧');window.__face&&__face('surprised',900);}
   }
   if(!isFinite(player.position.x)||!isFinite(player.position.z))resetHome();
+}
+/* ===== 掉落规则(领导定):天空城/星海的边是真的能掉下去的——
+   掉海=扑通下沉冒泡→星光泡泡托回栈道;掉云=坠落→云朵弹床弹回。
+   不摔不罚零挫败,掉落本身是个好玩的小事件。 ===== */
+const FALL={on:false,kind:'',t:0,ex:0,ez:0,ret:null};
+function edgeToast(msg){
+  let t=document.getElementById('edgeToast');
+  if(!t){t=document.createElement('div');t.id='edgeToast';document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(edgeToast._h);edgeToast._h=setTimeout(()=>{t.style.opacity='0';},2400);
+}
+/* 溅落道具:水花环+水珠+气泡/云朵弹床,平时藏着 */
+const splashGrp=new THREE.Group();splashGrp.visible=false;scene.add(splashGrp);
+const ringM=new THREE.MeshBasicMaterial({color:0xCFE4FF,transparent:true,opacity:0,depthWrite:false});
+const splashRing=new THREE.Mesh(new THREE.TorusGeometry(1,.09,10,32),ringM);
+splashRing.rotation.x=-Math.PI/2;splashGrp.add(splashRing);
+const dropM=new THREE.MeshBasicMaterial({color:0xE8F2FF,transparent:true,opacity:0});
+const drops=[];for(let i=0;i<6;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),dropM);splashGrp.add(d);drops.push(d);}
+const fBubM=new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:0});
+const fBubs=[];for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(.18+i*.06,10,8),fBubM);splashGrp.add(b);fBubs.push(b);}
+const poofM=new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:0});
+const poof=new THREE.Mesh(new THREE.SphereGeometry(1.6,16,12),poofM);poof.scale.y=.5;splashGrp.add(poof);
+function startFall(kind,ret){
+  if(FALL.on)return;
+  FALL.on=true;FALL.kind=kind;FALL.t=0;
+  FALL.ex=player.position.x;FALL.ez=player.position.z;
+  FALL.ret={x:ret.x,z:ret.z};
+  moving=false;target.copy(player.position);
+  window.__face&&__face('surprised',1200);
+  splashGrp.visible=true;splashGrp.position.set(0,0,0);
+  splashRing.position.set(FALL.ex,.16,FALL.ez);
+  poof.position.set(FALL.ret.x,-.2,FALL.ret.z);
+}
+function stepFall(dt){
+  /* rAF 与兜底 setInterval 时钟混用,dt 偶发为负——计时只进不退,否则动画永远走不完 */
+  FALL.t+=Math.max(0,dt);const t=FALL.t,ez2=x=>1-Math.pow(1-x,2);
+  if(FALL.kind==='sea'){
+    /* 0-0.5 下沉 | 0.5-1.05 咕嘟冒泡 | 1.05-2.05 托回栈道 */
+    if(t<.5){const k=t/.5;
+      player.position.x=FALL.ex;player.position.z=FALL.ez;
+      player.position.y=-1.15*k*k;
+      ringM.opacity=.85*(1-k);splashRing.scale.setScalar(.6+k*2.2);
+      dropM.opacity=.9*(1-k);
+      drops.forEach((d,i)=>{const a=i/6*6.28;
+        d.position.set(FALL.ex+Math.cos(a)*(0.3+k*1.1),.1+k*1.4-k*k*1.8,FALL.ez+Math.sin(a)*(0.3+k*1.1));});
+    }else if(t<1.05){const k=(t-.5)/.55;
+      player.position.y=-1.15+.55*k+Math.sin(k*9)*.08;
+      fBubM.opacity=.8;
+      fBubs.forEach((b,i)=>{b.position.set(FALL.ex+(i-1)*.3,-.6+((k*1.6+i*.33)%1)*1.4,FALL.ez+(i%2)*.25);});
+    }else if(t<2.05){const k=ez2((t-1.05)/1);
+      player.position.x=FALL.ex+(FALL.ret.x-FALL.ex)*k;
+      player.position.z=FALL.ez+(FALL.ret.z-FALL.ez)*k;
+      player.position.y=-.6+(k<.6?k/.6*1.9:1.9-((k-.6)/.4)*1.9);
+      fBubM.opacity=.8*(1-k);
+      fBubs.forEach((b,i)=>{b.position.set(player.position.x+(i-1)*.3,player.position.y-.4+i*.3,player.position.z+(i%2)*.25);});
+    }else{
+      FALL.on=false;splashGrp.visible=false;player.position.y=0;
+      ringM.opacity=dropM.opacity=fBubM.opacity=0;
+      edgeToast('💦 扑通!星光泡泡把你托回岸边啦');window.__face&&__face('happy',1500);
+    }
+  }else{ /* cloud:0-0.55 坠落 | 0.55-1.45 云朵弹床弹回 */
+    if(t<.55){const k=t/.55;
+      player.position.x=FALL.ex+(FALL.ret.x-FALL.ex)*k*.3;
+      player.position.z=FALL.ez+(FALL.ret.z-FALL.ez)*k*.3;
+      player.position.y=-2.4*k*k;
+    }else if(t<1.45){const k=(t-.55)/.9;
+      const kk=ez2(k);
+      player.position.x=FALL.ex+(FALL.ret.x-FALL.ex)*(.3+kk*.7);
+      player.position.z=FALL.ez+(FALL.ret.z-FALL.ez)*(.3+kk*.7);
+      player.position.y=-2.4*(1-k)+Math.sin(k*Math.PI)*2.2; /* 弹簧弧:-2.4→顶点→0 */
+      poofM.opacity=.85*(1-k);
+      poof.position.set(FALL.ex+(FALL.ret.x-FALL.ex)*.3,-.3,FALL.ez+(FALL.ret.z-FALL.ez)*.3);
+      poof.scale.set(1+k*1.6,.5+k*.3,1+k*1.6);
+    }else{
+      FALL.on=false;splashGrp.visible=false;player.position.y=0;poofM.opacity=0;
+      edgeToast('☁️ 呼——云朵弹床把你弹回来啦!');window.__face&&__face('happy',1500);
+      window.__bunnyJump&&__bunnyJump();
+    }
+  }
 }
 
 let t0=performance.now(),walkT=0,miniT=0;
@@ -2417,7 +2515,7 @@ function step(now){
       if(!heroEntry||!heroEntry.mixer)player.position.y=Math.abs(Math.sin(walkT))*.14;
     }
   } else if(!keyMove)player.position.y*=.85;
-  if(!playMode&&!(CLASS3D&&CLASS3D.active))collide();
+  if(!playMode&&!(CLASS3D&&CLASS3D.active)){if(FALL.on)stepFall(dt);else collide();}
   if(CLASS3D)CLASS3D.tick(dt);   // 教室:棋盘贴图刷新+3D棋子同步
   // 卡死检测:想走却走不动 1.2 秒 → 镜头自动拉远,帮兔子重新找方向
   if(!playMode&&(keyMove||moving)){
