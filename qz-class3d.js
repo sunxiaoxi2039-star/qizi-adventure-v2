@@ -77,6 +77,7 @@ window.QZ_CLASS3D_INSTALL = function (D) {
   const WSTONE = new THREE.MeshStandardMaterial({ color: 0xF8F8F5, roughness: .3 });
   function syncStones() {
     const st = window.__qz && window.__qz.state && window.__qz.state();
+    if (!st || !st.key) { if (S.lastBoard) { S.stoneGrp.clear(); S.lastBoard = ""; } return; }
     const bs = (st && st.board) || "";
     if (bs === S.lastBoard) return;
     S.lastBoard = bs;
@@ -109,15 +110,23 @@ window.QZ_CLASS3D_INSTALL = function (D) {
       /* ⚠️ 贴图必须在画布"已排版"后创建:build() 时画布常是空的,首次 GL 上传缓存空图,
          之后 needsUpdate 也救不回。检测画布位图尺寸变化(或首帧)就重建贴图。 */
       const cv = document.getElementById("bd");
-      if (cv && S.boardMesh && S.texW !== cv.width && cv.width > 10) {
-        S.texW = cv.width;
-        S.tex && S.tex.dispose();
-        S.tex = new THREE.CanvasTexture(cv);
-        S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
-        S.boardMesh.material.map = S.tex; S.boardMesh.material.color.set(0xffffff);
-        S.boardMesh.material.needsUpdate = true;
+      /* 只有正上着课(state().key 非空)才挂画布贴图:画布"已排版但从没画过"时
+         全是透明像素,贴上去=一块纯黑大板(新存档开章节卡必现)。没课=奶油素面。 */
+      const live = window.__qz && window.__qz.state && window.__qz.state().key;
+      if (cv && S.boardMesh) {
+        if (live && S.texW !== cv.width && cv.width > 10) {
+          S.texW = cv.width;
+          S.tex && S.tex.dispose();
+          S.tex = new THREE.CanvasTexture(cv);
+          S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
+          S.boardMesh.material.map = S.tex; S.boardMesh.material.color.set(0xffffff);
+          S.boardMesh.material.needsUpdate = true;
+        } else if (!live && S.boardMesh.material.map) {
+          S.boardMesh.material.map = null; S.boardMesh.material.color.set(0xF0E2C8);
+          S.boardMesh.material.needsUpdate = true; S.texW = -1;
+        }
       }
-      if (S.tex) S.tex.needsUpdate = true;      // 引擎每画一帧,桌面跟着变
+      if (live && S.tex) S.tex.needsUpdate = true;  // 引擎每画一帧,桌面跟着变
       const now = performance.now();
       if (now - S.pollT > 140) { S.pollT = now; try { syncStones(); } catch (e) {} }
     },
