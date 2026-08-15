@@ -36,6 +36,23 @@
   body.class3d #qzApp header{background:transparent;}
   body.class3d #qzApp .ttl{visibility:hidden;}   /* 教室里不需要重复大标题(和3D HUD 重影) */
   body.class3d #hint{display:none!important;}    /* 走路提示条在教室里没意义,还压字 */
+  /* ===== 课程浮层·世界即目录:44章胶囊坨/晋升条只属于 2D 独立版,3D 里不再出现
+     (选章=走到小屋,或 ?all=1 的🗺总览);单章卡居中成为唯一主角 ===== */
+  #qzApp #chips,#qzApp #rankbar,#qzApp #rankNote{display:none!important;}
+  #qzApp #map .chap.cur{max-width:440px;margin:9vh auto 20px;border-radius:26px;
+    box-shadow:0 18px 50px rgba(70,45,10,.28);}
+  #qzApp .nodes{justify-content:center;gap:12px;}
+  /* 调研定式(Candy Crush/Royal Match):全屏只有"当前该点的那一个"在呼吸发光 */
+  @keyframes qzPulse{0%,100%{transform:scale(1);box-shadow:0 3px 10px rgba(120,80,20,.18);}
+    50%{transform:scale(1.09);box-shadow:0 6px 22px rgba(242,199,110,.75);}}
+  #qzApp .node:not(.done):not(.lock){animation:qzPulse 1.6s ease-in-out infinite;}
+  #qzApp .node:not(.done):not(.lock)~.node:not(.done):not(.lock){animation:none;} /* 只许第一个呼吸 */
+  /* 大出口:课程一开,左上角常驻「回世界」——和进课程的按钮同角,孩子的家门 */
+  #bigExit{position:fixed;top:12px;left:12px;z-index:66;display:none;border:none;cursor:pointer;
+    background:#FBF9F4;border-radius:999px;padding:9px 16px 9px 11px;font-family:inherit;font-weight:900;
+    font-size:15px;color:#7a5a2a;box-shadow:0 4px 16px rgba(90,60,20,.25);align-items:center;gap:7px;}
+  #bigExit .em{font-size:21px;line-height:1;}
+  #bigExit:active{transform:scale(.94);}
   body.class3d #bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:62;
     width:calc(100vw - 28px);max-width:560px;margin:0;}
   body.class3d #game .btnrow{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:62;margin:0;white-space:nowrap;}
@@ -423,7 +440,7 @@
      引擎 buildMap() 检测不到 QZMAP 自动回落章节卡列表。index.html 离线版按拍板保留原样。 -->
 <script src="world_decor.js?v=1" onerror="this.remove()"></script>
 <script src="world_board.js?v=2" onerror="this.remove()"></script>
-<script src="world_zones.js?v=1" onerror="this.remove()"></script>
+<script src="world_zones.js?v=2" onerror="this.remove()"></script>
 <script src="qz-class3d.js?v=2" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
@@ -447,26 +464,55 @@ app.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x6FB4EA);
 scene.fog=new THREE.Fog(0xE4F1FB,55,150);
-/* 分区环境色:world_zones.js 提供 {zones:[{name,center,radius,fogTint,...}]},
-   玩家走进某区雾色缓动过去,离开缓动回默认——六世界"换气候"的关键 */
-const FOG_DEFAULT=new THREE.Color(0xE4F1FB);
-const fogTarget=new THREE.Color(0xE4F1FB);
+/* 分区环境系统 v2:world_zones.js 每区可带 fogTint/skyTint/sunI/sunTint/hemiI/night,
+   玩家走进某区,雾/天空/太阳/半球光/夜色因子一起缓动——星海=深夜靛蓝+星空+月亮,
+   圣殿=破晓金,庆典=金色庆典(对齐 callen 六世界设计图的"换气候")。
+   天空从 pano 贴图改为纯色插值(pano 只留 environment 供反射):贴图没法在
+   连续大陆上按区渐变,纯色+雾更贴白瓷软陶的干净底子。 */
+const ENV_DEFAULT={fog:new THREE.Color(0xE4F1FB),sky:new THREE.Color(0x6FB4EA),
+  sunI:2.1,sunC:new THREE.Color(0xFFF3E0),hemiI:1.05};
+const envT={fog:new THREE.Color(),sky:new THREE.Color(),sunC:new THREE.Color(),sunI:0,hemiI:0,night:0};
+let NIGHT=0;
 function updateZoneTint(px,pz,dt){
   const Z=window.WORLD_ZONES&&window.WORLD_ZONES.zones;
-  let tint=FOG_DEFAULT;
-  if(Z)for(const z of Z){
-    if(!z.fogTint||!z.center)continue;
-    if(Math.hypot(px-z.center[0],pz-z.center[1])<(z.radius||20)*1.25){tint=new THREE.Color(z.fogTint);break;}
+  let p=null;
+  /* 教室里永远是暖白天:玩家可能站在星海夜区,但上课的光不能跟着变黑 */
+  if(Z&&!document.body.classList.contains('class3d'))for(const z of Z){
+    if(!z.center)continue;
+    if(Math.hypot(px-z.center[0],pz-z.center[1])<(z.radius||20)*1.25){p=z;break;}
   }
-  fogTarget.copy(tint);
-  scene.fog.color.lerp(fogTarget,Math.min(1,dt*1.1));
-  scene.background&&scene.background.isColor&&scene.background.lerp(fogTarget,Math.min(1,dt*.4));
+  envT.fog.set(p&&p.fogTint?p.fogTint:ENV_DEFAULT.fog);
+  envT.sky.set(p&&p.skyTint?p.skyTint:ENV_DEFAULT.sky);
+  envT.sunC.set(p&&p.sunTint?p.sunTint:ENV_DEFAULT.sunC);
+  envT.sunI=(p&&p.sunI!=null)?p.sunI:ENV_DEFAULT.sunI;
+  envT.hemiI=(p&&p.hemiI!=null)?p.hemiI:ENV_DEFAULT.hemiI;
+  envT.night=(p&&p.night)?p.night:0;
+  const k=Math.min(1,dt*2.2),k2=Math.min(1,dt*1.3);
+  scene.fog.color.lerp(envT.fog,k);
+  scene.background&&scene.background.isColor&&scene.background.lerp(envT.sky,k2);
+  sun.intensity+=(envT.sunI-sun.intensity)*k2;
+  sun.color.lerp(envT.sunC,k2);
+  hemi.intensity+=(envT.hemiI-hemi.intensity)*k2;
+  NIGHT+=(envT.night-NIGHT)*k2;
+  /* 夜的关键一压:白瓷材质大头吃的是 pano 环境光(IBL),只调太阳/半球光压不黑,
+     必须连 environmentIntensity 和曝光一起压 */
+  scene.environmentIntensity=1-NIGHT*.88;
+  renderer.toneMappingExposure=1.12-NIGHT*.42;
+  if(NIGHT>0.012||nightGrp.visible){
+    nightGrp.visible=NIGHT>0.012;
+    starMat.opacity=NIGHT*.95;glintMat.opacity=NIGHT*.85;moonMat.opacity=NIGHT;
+    for(const L of nightLamps)L.intensity=NIGHT*1.7;
+    haloMat.opacity=NIGHT*.8;
+  }
+  window.__envDbg={zone:p&&p.name,night:+NIGHT.toFixed(3),fog:'#'+scene.fog.color.getHexString(),
+    sky:scene.background&&scene.background.isColor?'#'+scene.background.getHexString():'tex',
+    sunI:+sun.intensity.toFixed(2),hemiI:+hemi.intensity.toFixed(2)};
 }
 new THREE.TextureLoader().load('assets/v2/sky_pano.jpg?v=2',t=>{
   t.mapping=THREE.EquirectangularReflectionMapping;t.colorSpace=THREE.SRGBColorSpace;
-  scene.background=t;scene.environment=t;},undefined,()=>{});
+  scene.environment=t;},undefined,()=>{});
 const cam=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,.1,400);
-scene.add(new THREE.HemisphereLight(0xCFE6FF,0xFFF6EA,1.05));
+const hemi=new THREE.HemisphereLight(0xCFE6FF,0xFFF6EA,1.05);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xFFF3E0,2.1);
 sun.position.set(24,38,18);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
@@ -474,6 +520,40 @@ sun.shadow.camera.left=-70;sun.shadow.camera.right=70;
 sun.shadow.camera.top=70;sun.shadow.camera.bottom=-70;
 sun.shadow.camera.far=160;sun.shadow.bias=-0.0004;sun.shadow.radius=6;
 scene.add(sun);
+/* ===== 星海夜空(NIGHT 因子驱动,白天完全隐形):星幕 + 月亮 + 湖面波光 ===== */
+const nightGrp=new THREE.Group();nightGrp.visible=false;scene.add(nightGrp);
+const dotTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;
+  const x=c.getContext('2d'),g=x.createRadialGradient(16,16,0,16,16,16);
+  g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.4,'rgba(255,255,255,.8)');g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g;x.fillRect(0,0,32,32);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
+const starMat=new THREE.PointsMaterial({color:0xFFFFFF,size:1.1,map:dotTex,transparent:true,opacity:0,depthWrite:false,fog:false});
+{const N=420,pos=new Float32Array(N*3);
+ for(let i=0;i<N;i++){
+   const a=Math.random()*Math.PI*2,e=Math.acos(.12+Math.random()*.82),r=66+Math.random()*28;
+   pos[i*3]=96+Math.cos(a)*Math.sin(e)*r;
+   pos[i*3+1]=Math.cos(e)*r+4;
+   pos[i*3+2]=-21+Math.sin(a)*Math.sin(e)*r;
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ nightGrp.add(new THREE.Points(g,starMat));}
+const moonMat=new THREE.MeshBasicMaterial({color:0xFFF4CF,transparent:true,opacity:0,fog:false});
+const moon=new THREE.Mesh(new THREE.SphereGeometry(4.4,24,18),moonMat);
+moon.position.set(114,42,-70);nightGrp.add(moon);
+const glintMat=new THREE.PointsMaterial({color:0xBFD9FF,size:.55,map:dotTex,transparent:true,opacity:0,depthWrite:false});
+{const N=70,pos=new Float32Array(N*3);
+ for(let i=0;i<N;i++){
+   const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*13.5;
+   pos[i*3]=96+Math.cos(a)*r;pos[i*3+1]=.14;pos[i*3+2]=-21+Math.sin(a)*r;
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ nightGrp.add(new THREE.Points(g,glintMat));}
+/* 夜里灯笼点亮:关键位暖点光+光晕(白天 intensity=0 无感) */
+const nightLamps=[];const haloMat=new THREE.MeshBasicMaterial({color:0xFFD9A0,transparent:true,opacity:0,fog:false});
+[[93,8.6,-33.5],[101,2.2,-34],[83.5,2.1,-21.5],[92,2.2,-6],[98.8,2.3,-6.5],[91.5,3,-19.5]].forEach(([x,y,z])=>{
+  const L=new THREE.PointLight(0xFFC98A,0,16,1.7);L.position.set(x,y,z);nightGrp.add(L);nightLamps.push(L);
+  const h=new THREE.Mesh(new THREE.SphereGeometry(.34,12,10),haloMat);h.position.set(x,y,z);nightGrp.add(h);
+});
 
 const CE=new THREE.MeshPhysicalMaterial({color:0xFBF9F4,roughness:.42,clearcoat:.28,clearcoatRoughness:.55});
 const CE2=new THREE.MeshPhysicalMaterial({color:0xF2F3F6,roughness:.45,clearcoat:.22,clearcoatRoughness:.6});
@@ -1754,6 +1834,19 @@ if(ROMP.on)startRomp();
 /* ?ch= 深链:直接展开课程浮层(撒欢模式除外) */
 {const chDeep=new URLSearchParams(location.search).get('ch');
  if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
+/* 大出口(所有人都有,不只 ?all=1):课程浮层一开就出现,点了回 3D 世界 */
+{const bigExit=document.createElement('button');bigExit.id='bigExit';
+ /* 调研定式(Toca Life World):出口画的是"目的地"——雪村大道缩略图,不是抽象X */
+ bigExit.innerHTML='<img src="assets/scene_plaza.png?v=3" alt="" style="width:30px;height:30px;'+
+   'border-radius:50%;object-fit:cover;flex:none" onerror="this.outerHTML=\'<span class=em>🏡</span>\'">'+tt('回大路');
+ bigExit.onclick=()=>{if(window.QZ)QZ.close();};
+ document.body.appendChild(bigExit);
+ const qa=document.getElementById('qzApp');
+ new MutationObserver(()=>{bigExit.style.display=qa.classList.contains('on')?'flex':'none';})
+   .observe(qa,{attributes:true,attributeFilter:['class']});
+ /* 章节卡外的空白也当出口:点到 #map 裸底=想回世界 */
+ const mapEl=document.getElementById('map');
+ if(mapEl)mapEl.addEventListener('click',e=>{if(e.target===mapEl&&window.QZ)QZ.close();});}
 /* 🛠 验收工具(?all=1):①分世界下拉 ②🗺 全景总览面板(六世界→章→单集,点单集直进3D教室) */
 if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
   /* 六世界↔章节 id 映射(与 rangeOfIds 的分组一字不差;试炼浮岛=产品二预留) */
@@ -1852,6 +1945,7 @@ if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
       player.position.set(w.tp[0],0,w.tp[1]);target.copy(player.position);moving=false;
       camPos.set(player.position.x+Math.sin(camYaw)*camDist,1.6+camDist*.72,player.position.z+Math.cos(camYaw)*camDist);
       cam.position.copy(camPos);
+      updateZoneTint(player.position.x,player.position.z,99); // 传送=环境直接快照到位,不慢慢换天
     });
   }
   btnMap.onclick=()=>{buildOverview();ovl.style.display='block';};
@@ -2010,7 +2104,8 @@ if(window.WORLD_DECOR){
   if(window.WORLD_ZONES&&Array.isArray(WORLD_ZONES.zones)){
     WORLD_ZONES.zones.forEach(z=>{
       if(z.groundTint&&z.center){
-        const gd=new THREE.Mesh(new THREE.CylinderGeometry(z.radius||15,(z.radius||15)*.96,1,48),
+        const gr=z.groundR||z.radius||15;   // groundR:染色盘可比放行圈大(星海要一整片夜海)
+        const gd=new THREE.Mesh(new THREE.CylinderGeometry(gr,gr*.96,1,48),
           new THREE.MeshStandardMaterial({color:new THREE.Color(z.groundTint),
             roughness:z.name==='月兔星海'?.35:.9}));  // 星海地面偏光=湖面感
         gd.position.set(z.center[0],-.44,z.center[1]);gd.receiveShadow=true;scene.add(gd);
