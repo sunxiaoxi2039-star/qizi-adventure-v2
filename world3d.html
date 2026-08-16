@@ -1017,9 +1017,11 @@ function attachTailBall(root){
   let bone=null;
   root.traverse(o=>{if(o.isBone&&!bone&&(o.name==='Pelvis'||o.name==='Hip'))bone=o;});
   const ball=makeTailBall();
-  const [ax,ay,az]=TAIL.anchor;
-  /* 删面在臀部留了个凹口,球要往身体里塞(+X 方向=朝身体内),否则看着离身一截 */
-  const world=new THREE.Vector3(ax+0.042,ay+0.022,az);
+  (window.__tailBalls=window.__tailBalls||[]).push(ball);  // QA:运行时调偏移用
+  /* 领导:"尾巴没贴着屁股"。不再依赖删面锚点(它偏侧偏低),
+     直接用包围盒定位:模型面朝 +X,屁股=min.x 一侧,球放屁股正中偏内,y=臀高 */
+  const bb=glbBox,H=bb.max.y-bb.min.y;
+  const world=new THREE.Vector3(bb.min.x+H*.065,bb.min.y+H*.30,(bb.min.z+bb.max.z)/2);
   if(bone){
     root.updateMatrixWorld(true);
     root.localToWorld(world);
@@ -1851,6 +1853,30 @@ if(ROMP.on)startRomp();
 {const chDeep=new URLSearchParams(location.search).get('ch');
  if(chDeep&&window.QZ&&!ROMP.on)setTimeout(()=>QZ.openChapter(+chDeep),300);}
 if(COZY){const v=document.createElement('div');v.id='vig';document.body.appendChild(v);}
+/* 🌙 matcap 试点(?matcap=1,领导已批星海先行):星海圈内网格换 MeshMatcapMaterial,
+   "月釉"matcap 由 canvas 程序生成;matcap 不吃场景灯=bruno 同款假光——
+   这是"密度翻倍不卡"大招的前置实验,领导看图拍板后再铺开 */
+if(/[?&]matcap=1/.test(location.search)){
+  const mc=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
+    const grd=g.createRadialGradient(96,88,10,128,128,150);
+    grd.addColorStop(0,'#E8EFFF');grd.addColorStop(.35,'#8FA3D8');grd.addColorStop(.75,'#3A4878');grd.addColorStop(1,'#1E2749');
+    g.fillStyle=grd;g.fillRect(0,0,256,256);
+    const warm=g.createRadialGradient(190,200,4,190,200,70);
+    warm.addColorStop(0,'rgba(255,190,120,.55)');warm.addColorStop(1,'rgba(255,190,120,0)');
+    g.fillStyle=warm;g.fillRect(0,0,256,256);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
+  setTimeout(()=>{
+    const v=new THREE.Vector3();let n=0;
+    scene.traverse(o=>{
+      if(!o.isMesh||o.isSkinnedMesh||!o.material||o.material.transparent)return;
+      o.getWorldPosition(v);
+      if(Math.hypot(v.x-96,v.z+21)>24)return;
+      const col=o.material.color?o.material.color.clone():new THREE.Color(0xffffff);
+      o.material=new THREE.MeshMatcapMaterial({matcap:mc,color:col});n++;
+    });
+    console.log('[matcap] 星海试点替换',n,'件');
+  },9000);
+}
 /* 大出口(所有人都有,不只 ?all=1):课程浮层一开就出现,点了回 3D 世界 */
 {const bigExit=document.createElement('button');bigExit.id='bigExit';
  /* 调研定式(Toca Life World):出口画的是"目的地"——雪村大道缩略图,不是抽象X */
@@ -2482,7 +2508,7 @@ function stepFall(dt){
   }
 }
 
-let t0=performance.now(),walkT=0,miniT=0;
+let t0=performance.now(),walkT=0,miniT=0,cloudHopT=0;
 let stuckMs=0,stuckPX=0,stuckPZ=0;
 const camPos=new THREE.Vector3(0,5,30);
 function step(now){
@@ -2515,6 +2541,19 @@ function step(now){
       if(!heroEntry||!heroEntry.mixer)player.position.y=Math.abs(Math.sin(walkT))*.14;
     }
   } else if(!keyMove)player.position.y*=.85;
+  /* ☁️ 云上蹦跳(领导:天空城不能蹦就不好玩):云区行走=踩弹床的大跳;
+     星海夜区只微弹(水边大蹦容易误掉海,夜里也该是漫步气质) */
+  if(!FALL.on&&!playMode&&(keyMove||moving)){
+    const px=player.position.x,pz=player.position.z;
+    let amp=0;
+    if(Math.hypot(px,pz)>76){
+      amp=.3;
+      for(const c of ZONE_CENTERS)if(Math.hypot(px-c[0],pz-c[1])<26){amp=.62;break;}
+      const WZ=window.WORLD_ZONES&&WORLD_ZONES.zones;
+      if(WZ)for(const z of WZ)if(z.night&&z.center&&Math.hypot(px-z.center[0],pz-z.center[1])<(z.radius||15)*1.25){amp=.16;break;}
+    }
+    if(amp>0){cloudHopT+=dt*7.5;player.position.y=Math.abs(Math.sin(cloudHopT))*amp;}
+  }
   if(!playMode&&!(CLASS3D&&CLASS3D.active)){if(FALL.on)stepFall(dt);else collide();}
   if(CLASS3D)CLASS3D.tick(dt);   // 教室:棋盘贴图刷新+3D棋子同步
   // 卡死检测:想走却走不动 1.2 秒 → 镜头自动拉远,帮兔子重新找方向
@@ -2717,6 +2756,26 @@ window.__anim=()=>animBunnies.map((a,i)=>{
     eyesZ:ee?[ee[8],ee[10]].map(v=>+v.toFixed(2)):null};
 });
 window.__w3_setyaw=v=>{camYaw=v;};
+window.__glbInfo=()=>{const out=[];glbProto&&glbProto.traverse(o=>{if(o.isMesh)out.push({n:o.name,v:o.geometry.attributes.position.count,skin:!!o.isSkinnedMesh,map:!!(o.material&&o.material.map)});});return out;};
+window.__glbTex=()=>{let d=null;glbProto&&glbProto.traverse(o=>{if(!d&&o.isMesh&&o.material&&o.material.map&&o.material.map.image){
+  const im=o.material.map.image,c=document.createElement('canvas');c.width=im.width;c.height=im.height;
+  c.getContext('2d').drawImage(im,0,0);d=c.toDataURL('image/png');}});return d;};
+window.__pickUV=(sx,sy)=>{const nd=new THREE.Vector2(sx/innerWidth*2-1,-(sy/innerHeight)*2+1);
+  const rc=new THREE.Raycaster();rc.setFromCamera(nd,cam);
+  const hit=heroEntry&&heroEntry.wrap?rc.intersectObject(heroEntry.wrap,true)[0]:null;
+  return hit&&hit.uv?{u:+hit.uv.x.toFixed(4),v:+hit.uv.y.toFixed(4),
+    tx:Math.round(hit.uv.x*2048),ty:Math.round((1-hit.uv.y)*2048)}:null;};
+window.__texPx=(x,y)=>{let out=null;glbProto&&glbProto.traverse(o=>{if(out||!o.isMesh||!o.material||!o.material.map)return;
+  const t=o.material.map;let im=t.image;
+  if(!(im instanceof HTMLCanvasElement)){const c=document.createElement('canvas');c.width=im.width;c.height=im.height;
+    c.getContext('2d').drawImage(im,0,0);t.image=c;t.needsUpdate=true;im=c;}
+  const d=im.getContext('2d').getImageData(Math.max(0,Math.min(im.width-1,x)),Math.max(0,Math.min(im.height-1,y)),1,1).data;
+  out=[d[0],d[1],d[2]];});return out;};
+window.__texPaint=(x,y,w,h,color)=>{let ok=false;glbProto&&glbProto.traverse(o=>{if(ok||!o.isMesh||!o.material||!o.material.map)return;
+  const t=o.material.map;let im=t.image;
+  if(!(im instanceof HTMLCanvasElement)){const c=document.createElement('canvas');c.width=im.width;c.height=im.height;
+    c.getContext('2d').drawImage(im,0,0);t.image=c;im=c;}
+  const g=im.getContext('2d');g.fillStyle=color;g.fillRect(x,y,w,h);t.needsUpdate=true;ok=true;});return ok;};
 window.__say3=say3; // QA:语音匹配探针用
 window.__w3={pos:()=>player.position.toArray(),go:(x,z)=>{target.set(x,0,z);moving=true;},
   tp:(x,z)=>{player.position.set(x,0,z);target.set(x,0,z);moving=false;
