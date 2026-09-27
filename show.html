@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>棋子大冒险 · 展示版</title>
+<meta name="description" content="跟着糯糯，从第一颗棋子走到冲段。六个白瓷世界、232 关、2858 句真人配音，双击就能玩的围棋启蒙。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --porc:#FBF9F4;--cream:#FFF7E8;--cream2:#F3E9DA;--wood:#D9A86C;--wood2:#C89A5B;--sage:#77B77A;--sage2:#A8CC9A;
+  --gold:#F2C76E;--gold2:#F5B942;--pink:#F5AFC1;--pink2:#F9CCDA;--sky:#9DCAE8;--sky2:#6FB4EA;--ink:#2D2B28;--ink2:#6B5D4C;--line:#EADFC8;
+  --w1:#7FB4D8;--w2:#9AB8C9;--w3:#8FB878;--w4:#8B9DD0;--w5:#D8B15E;--w6:#C98FA8;--w7:#A9A9C9;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --r:28px;--shadow:0 18px 50px rgba(120,80,20,.14),0 2px 6px rgba(120,80,20,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--porc);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+button{font-family:inherit}
+::selection{background:var(--gold);color:var(--ink)}
+
+/* ---------- 顶栏 ---------- */
+.nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:6px;padding:6px 8px 6px 16px;border-radius:999px;background:rgba(251,249,244,.78);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 2px 14px rgba(120,80,20,.14);border:1px solid rgba(255,255,255,.7);max-width:calc(100vw - 24px);white-space:nowrap}
+.nav .logo{font-family:var(--serif);font-weight:900;font-size:15px;letter-spacing:.06em;margin-right:8px;display:flex;align-items:center;gap:8px}
+.nav .logo i{width:10px;height:10px;border-radius:50%;background:var(--ink);box-shadow:14px 0 0 var(--porc),14px 0 0 1.5px var(--ink)}
+.nav a.l{font-size:13px;font-weight:700;color:var(--ink2);padding:6px 10px;border-radius:999px;transition:.2s}
+.nav a.l:hover{background:rgba(242,199,110,.35);color:var(--ink)}
+.nav a.cta{font-size:13px;font-weight:900;background:var(--ink);color:var(--porc);padding:8px 16px;border-radius:999px;margin-left:4px;transition:.2s}
+.nav a.cta:hover{background:#000;transform:translateY(-1px)}
+@media(max-width:720px){.nav a.l{display:none}.nav{padding-left:14px}}
+@media(max-width:900px){.hero .btns{justify-content:center}}
+
+/* ---------- 开屏 ---------- */
+.hero{position:relative;height:100vh;min-height:640px;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 100%,#F3E9DA 0%,#FBF9F4 55%,#FFFFFF 100%)}
+.hero:before{content:"";position:absolute;inset:0;background:
+  radial-gradient(40% 30% at 18% 22%,rgba(249,204,218,.45),transparent 70%),
+  radial-gradient(38% 28% at 82% 18%,rgba(157,202,232,.42),transparent 70%),
+  radial-gradient(45% 35% at 55% 85%,rgba(242,199,110,.28),transparent 70%);pointer-events:none}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.hero .copy{position:absolute;left:max(24px,6vw);right:auto;bottom:10vh;text-align:left;pointer-events:none;padding:0;z-index:3;max-width:640px}
+@media(max-width:900px){.hero .copy{left:0;right:0;text-align:center;padding:0 20px;bottom:7vh;max-width:none}}
+.hero .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.24em;color:var(--ink2);background:rgba(255,255,255,.55);padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.8);backdrop-filter:blur(6px)}
+.hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(46px,9vw,120px);line-height:1.02;letter-spacing:.04em;margin:14px 0 8px;color:var(--ink);
+  text-shadow:0 2px 0 #fff,0 18px 40px rgba(120,80,20,.12)}
+.hero h1 span{display:inline-block;opacity:0;transform:translateY(26px);animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards}
+.hero h1 span:nth-child(1){animation-delay:.35s}.hero h1 span:nth-child(2){animation-delay:.42s}.hero h1 span:nth-child(3){animation-delay:.49s}.hero h1 span:nth-child(4){animation-delay:.56s}.hero h1 span:nth-child(5){animation-delay:.63s}
+@keyframes rise{to{opacity:1;transform:none}}
+.hero .sub{font-size:clamp(15px,2vw,20px);color:var(--ink2);font-weight:500;margin:0 0 22px;opacity:0;animation:rise .9s .9s cubic-bezier(.2,.8,.2,1) forwards}
+.hero .btns{display:flex;gap:12px;justify-content:flex-start;flex-wrap:wrap;pointer-events:auto;opacity:0;animation:rise .9s 1.05s cubic-bezier(.2,.8,.2,1) forwards}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;font-weight:900;font-size:16px;border:none;cursor:pointer;transition:.25s cubic-bezier(.2,.8,.2,1);box-shadow:0 10px 24px rgba(120,80,20,.18)}
+.btn.primary{background:var(--ink);color:var(--porc)}
+.btn.primary:hover{transform:translateY(-3px);box-shadow:0 18px 34px rgba(45,43,40,.28)}
+.btn.soft{background:rgba(255,255,255,.85);color:var(--ink);border:1px solid var(--line)}
+.btn.soft:hover{transform:translateY(-3px);background:#fff}
+.btn .k{width:22px;height:22px;border-radius:50%;background:var(--gold);display:inline-grid;place-items:center;color:var(--ink);font-size:12px}
+.hero .scroll{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);font-size:11px;letter-spacing:.3em;color:var(--ink2);opacity:.7;animation:bob 2.2s ease-in-out infinite;z-index:3}
+@keyframes bob{50%{transform:translate(-50%,6px)}}
+#loader{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:var(--porc);transition:opacity .8s ease,visibility .8s}
+#loader.off{opacity:0;visibility:hidden}
+#loader .dot{width:16px;height:16px;border-radius:50%;background:var(--ink);display:inline-block;margin:0 5px;animation:pulse 1.2s ease-in-out infinite}
+#loader .dot:nth-child(2){background:#fff;box-shadow:0 0 0 1.5px var(--ink);animation-delay:.2s}
+#loader .dot:nth-child(3){animation-delay:.4s}
+#loader .dot:nth-child(4){background:#fff;box-shadow:0 0 0 1.5px var(--ink);animation-delay:.6s}
+@keyframes pulse{50%{transform:translateY(-8px)}}
+#loader p{margin-top:16px;font-size:13px;letter-spacing:.2em;color:var(--ink2)}
+#fallbackHero{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+#fallbackHero img{width:min(60vh,420px);border-radius:50%;box-shadow:var(--shadow)}
+.hero.static #fallbackHero{display:flex}
+
+/* ---------- 通用版式 ---------- */
+.sec{position:relative;padding:clamp(72px,10vw,140px) 0}
+.wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
+.kicker{font-size:12px;font-weight:900;letter-spacing:.32em;color:var(--wood2);text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.kicker:before{content:"";width:28px;height:2px;background:var(--gold)}
+h2{font-family:var(--serif);font-weight:900;font-size:clamp(30px,4.4vw,56px);letter-spacing:.03em;line-height:1.15;margin:12px 0 10px}
+.lead{font-size:clamp(15px,1.5vw,18px);color:var(--ink2);max-width:640px;margin:0}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- 长卷 ---------- */
+.scroll-band{overflow:hidden;background:linear-gradient(180deg,#fff 0%,var(--cream) 100%);padding:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.scroll-band .track{display:flex;width:max-content;animation:slide 90s linear infinite}
+.scroll-band:hover .track{animation-play-state:paused}
+.scroll-band img{height:clamp(160px,28vw,320px);width:auto;flex:none}
+@keyframes slide{to{transform:translateX(-50%)}}
+.band-cap{display:flex;justify-content:space-between;align-items:center;padding:14px 0 0;font-size:12px;letter-spacing:.2em;color:var(--ink2);font-weight:700}
+
+/* ---------- 六世界 ---------- */
+.worlds{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:40px}
+@media(max-width:960px){.worlds{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.worlds{grid-template-columns:1fr}}
+.wcard{--c:var(--w1);position:relative;border-radius:var(--r);background:#fff;box-shadow:var(--shadow);overflow:hidden;transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .45s;border:1px solid rgba(255,255,255,.9)}
+.wcard:hover{transform:translateY(-8px) rotate(-.4deg);box-shadow:0 30px 60px rgba(120,80,20,.2)}
+.wcard .pic{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--cream2)}
+.wcard .pic img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.wcard:hover .pic img{transform:scale(1.06)}
+.wcard .pic:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(255,255,255,.55));pointer-events:none}
+.wcard .num{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-weight:900;font-size:17px;box-shadow:0 4px 12px rgba(0,0,0,.14);z-index:2}
+.wcard .lv{position:absolute;top:16px;right:14px;background:rgba(255,255,255,.88);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:900;letter-spacing:.08em;color:var(--ink2);z-index:2}
+.wcard .body{padding:18px 20px 20px}
+.wcard h3{font-family:var(--serif);font-size:20px;margin:0 0 4px;font-weight:900;letter-spacing:.02em}
+.wcard h3 small{font-family:var(--sans);font-weight:700;color:var(--ink2);font-size:13px;margin-left:8px}
+.wcard p{margin:0 0 14px;color:var(--ink2);font-size:14px;min-height:42px}
+.wcard .go{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:14px;color:var(--ink);padding:9px 16px;border-radius:999px;background:var(--cream);border:1px solid var(--line);transition:.25s}
+.wcard .go:hover{background:var(--c);color:#fff;border-color:var(--c)}
+.wcard .glaze{position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--c)}
+.wcard.ghost{background:transparent;border:2px dashed var(--line);box-shadow:none}
+.wcard.ghost .pic{background:repeating-linear-gradient(45deg,#fff 0 12px,var(--cream) 12px 24px);display:grid;place-items:center;color:var(--ink2);font-weight:900;letter-spacing:.2em}
+.wcard.ghost .go{opacity:.5;pointer-events:none}
+
+/* ---------- 现场试玩 ---------- */
+.play{background:linear-gradient(180deg,var(--porc),#fff)}
+.stages{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;margin-top:40px;align-items:start}
+@media(max-width:900px){.stages{grid-template-columns:1fr}}
+.frame{position:relative;border-radius:34px;padding:14px;background:linear-gradient(160deg,#fff,var(--cream2));box-shadow:var(--shadow),inset 0 0 0 1px rgba(255,255,255,.9)}
+.frame .screen{position:relative;border-radius:22px;overflow:hidden;background:#000;aspect-ratio:16/10}
+.frame .screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--porc)}
+.frame .poster{position:absolute;inset:0;background-size:cover;background-position:center;cursor:pointer;display:grid;place-items:center;transition:.3s}
+.frame .poster:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.28));pointer-events:none}
+.frame .poster .pl{position:relative;z-index:2;width:92px;height:92px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;box-shadow:0 12px 30px rgba(0,0,0,.25);transition:.3s;font-size:34px}
+.frame .poster:hover .pl{transform:scale(1.08)}
+.frame .poster .tip{position:absolute;bottom:18px;left:0;right:0;text-align:center;color:#fff;font-weight:900;letter-spacing:.14em;font-size:14px;z-index:2;text-shadow:0 2px 8px rgba(0,0,0,.4)}
+.frame .cap{display:flex;justify-content:space-between;align-items:center;padding:14px 8px 2px;gap:12px}
+.frame .cap b{font-family:var(--serif);font-size:18px}
+.frame .cap span{font-size:13px;color:var(--ink2)}
+.frame .cap a{font-size:13px;font-weight:900;color:var(--ink);background:var(--gold);padding:7px 14px;border-radius:999px;white-space:nowrap}
+.frame .cap a:hover{background:var(--gold2)}
+.playhint{margin-top:18px;font-size:13px;color:var(--ink2);display:flex;gap:16px;flex-wrap:wrap}
+.playhint span:before{content:"·";margin-right:6px;color:var(--gold2)}
+
+/* ---------- 数字 ---------- */
+.nums{background:var(--ink);color:var(--porc);position:relative;overflow:hidden}
+.nums:before{content:"";position:absolute;inset:-40% -10%;background:radial-gradient(35% 40% at 20% 30%,rgba(242,199,110,.22),transparent 70%),radial-gradient(30% 35% at 80% 70%,rgba(157,202,232,.18),transparent 70%);pointer-events:none}
+.nums .kicker{color:var(--gold)}.nums .kicker:before{background:var(--gold)}
+.nums .lead{color:rgba(251,249,244,.7)}
+.numgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-top:46px}
+@media(max-width:960px){.numgrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.numgrid{grid-template-columns:repeat(2,1fr)}}
+.num{padding:24px 18px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(6px)}
+.num b{display:block;font-family:var(--serif);font-size:clamp(38px,5vw,64px);font-weight:900;line-height:1;letter-spacing:.02em;color:#fff}
+.num b em{font-style:normal;font-size:.45em;color:var(--gold);margin-left:4px}
+.num span{display:block;margin-top:10px;font-size:13px;color:rgba(251,249,244,.72);font-weight:700;letter-spacing:.06em}
+
+/* ---------- 糯糯 ---------- */
+.mentor{background:linear-gradient(180deg,#fff,var(--cream))}
+.mgrid{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px;align-items:center}
+@media(max-width:900px){.mgrid{grid-template-columns:1fr}}
+.mpic{position:relative}
+.mpic img{border-radius:44px;box-shadow:var(--shadow);width:100%;aspect-ratio:1;object-fit:cover}
+.mpic .bubble{position:absolute;right:-6px;top:-18px;background:#fff;border-radius:22px 22px 22px 6px;padding:14px 18px;font-family:var(--serif);font-weight:900;font-size:17px;box-shadow:var(--shadow);border:1px solid var(--line);max-width:260px;line-height:1.5;animation:bob2 4s ease-in-out infinite}
+@keyframes bob2{50%{transform:translateY(-6px)}}
+.pill{display:flex;gap:16px;padding:18px 20px;border-radius:22px;background:#fff;box-shadow:0 8px 24px rgba(120,80,20,.08);border:1px solid var(--line);margin-top:14px}
+.pill .ic{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:var(--cream)}
+.pill b{display:block;font-size:16px;margin-bottom:2px}
+.pill span{font-size:14px;color:var(--ink2)}
+
+/* ---------- 家长 ---------- */
+.honest .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:36px}
+@media(max-width:760px){.honest .grid{grid-template-columns:1fr}}
+.hcard{padding:24px 26px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(120,80,20,.06)}
+.hcard h4{margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:10px}
+.hcard h4 i{width:26px;height:26px;border-radius:50%;background:var(--sage2);display:inline-grid;place-items:center;font-style:normal;font-size:13px;color:#fff}
+.hcard p{margin:0;font-size:14px;color:var(--ink2)}
+.hcard.warn h4 i{background:var(--gold2)}
+.ver{margin-top:40px;padding:22px 26px;border-radius:24px;background:var(--cream);border:1px dashed var(--wood)}
+.ver summary{cursor:pointer;font-weight:900;font-size:15px;list-style:none;display:flex;align-items:center;gap:10px}
+.ver summary:before{content:"＋";width:24px;height:24px;border-radius:50%;background:var(--gold);display:inline-grid;place-items:center;font-size:14px}
+.ver[open] summary:before{content:"－"}
+.ver ol{margin:14px 0 0;padding-left:20px;font-size:14px;color:var(--ink2)}
+.ver li{margin:6px 0}.ver code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#fff;padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+
+/* ---------- 尾 ---------- */
+.foot{padding:40px 0 60px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
+.foot .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+.foot a{font-weight:700;color:var(--ink);margin-left:14px}
+@media(prefers-reduced-motion:reduce){.scroll-band .track{animation:none}.hero h1 span,.hero .sub,.hero .btns{animation:none;opacity:1;transform:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="logo"><i></i>棋子大冒险</span>
+  <a class="l" href="#worlds">六世界</a>
+  <a class="l" href="#play">现场试玩</a>
+  <a class="l" href="#nums">数字</a>
+  <a class="l" href="#parents">家长</a>
+  <a class="cta" href="world3d.html?all=1&nointro=1">开始冒险</a>
+</nav>
+
+<!-- ===== 开屏 ===== -->
+<header class="hero" id="top">
+  <canvas id="stage"></canvas>
+  <div id="fallbackHero"><img src="assets/show/bunny_front.png" alt="糯糯"></div>
+  <div id="loader"><div><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><p>糯糯正在摆棋子…</p></div></div>
+  <div class="copy">
+    <span class="eyebrow">围棋启蒙 · 4–8 岁 · 双击就能玩</span>
+    <h1><span>棋</span><span>子</span><span>大</span><span>冒</span><span>险</span></h1>
+    <p class="sub">跟着白瓷小兔糯糯，从第一颗棋子走到冲段。六个世界、232 关、2858 句真人配音。</p>
+    <div class="btns">
+      <a class="btn primary" href="world3d.html?all=1&nointro=1"><span class="k">▶</span>进入 3D 世界</a>
+      <a class="btn soft" href="#play">先试一关</a>
+    </div>
+  </div>
+  <div class="scroll">SCROLL</div>
+</header>
+
+<!-- ===== 六世界长卷 ===== -->
+<section class="scroll-band" aria-label="六世界连续长卷">
+  <div class="track">
+    <img src="assets/show/handscroll.jpg" alt="六世界连续长卷">
+    <img src="assets/show/handscroll.jpg" alt="" aria-hidden="true">
+  </div>
+</section>
+
+<!-- ===== 六世界 ===== -->
+<section class="sec" id="worlds">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="kicker">Six Worlds · 一条棋盘路</div>
+      <h2>六个世界，一路从 25 级走到冲段</h2>
+      <p class="lead">每个世界只教一件事。学完雪村的「气」，才进得了点心客厅；做得出两只眼，才飞得上天空花园。点「带我去」直接落进那片世界。</p>
+    </div>
+    <div class="worlds">
+      <a class="wcard reveal" style="--c:var(--w1)" href="world3d.html?all=1&nointro=1&w=1">
+        <div class="pic"><span class="num">1</span><span class="lv">25K → 20K</span><img src="assets/show/world1.jpg" alt="雪村·气球村" loading="lazy"></div>
+        <div class="body"><h3>雪村<small>气球村</small></h3><p>棋子的呼吸叫「气」。数气、堵气、把没气的棋子提走。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+      <a class="wcard reveal" style="--c:var(--w2)" href="world3d.html?all=1&nointro=1&w=2">
+        <div class="pic"><span class="num">2</span><span class="lv">20K → 15K</span><img src="assets/show/world2.jpg" alt="雪地启程·点心客厅" loading="lazy"></div>
+        <div class="body"><h3>雪地启程<small>点心客厅</small></h3><p>高级吃子：征子、枷、扑、接不归。像分点心一样把棋子收进篮子。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+      <a class="wcard reveal" style="--c:var(--w3)" href="world3d.html?all=1&nointro=1&w=3">
+        <div class="pic"><span class="num">3</span><span class="lv">15K → 12K</span><img src="assets/show/world3.jpg" alt="天空花园·生命之泉" loading="lazy"></div>
+        <div class="body"><h3>天空花园<small>生命之泉</small></h3><p>死活与做眼。两只眼才是活棋，泉水会告诉你哪块棋能长大。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+      <a class="wcard reveal" style="--c:var(--w4)" href="world3d.html?all=1&nointro=1&w=4">
+        <div class="pic"><span class="num">4</span><span class="lv">12K → 8K</span><img src="assets/show/world4.jpg" alt="月兔星海·对杀谷" loading="lazy"></div>
+        <div class="body"><h3>月兔星海<small>对杀谷</small></h3><p>对杀与手筋。数清双方的气，星星会替你点亮那一步妙手。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+      <a class="wcard reveal" style="--c:var(--w5)" href="world3d.html?all=1&nointro=1&w=5">
+        <div class="pic"><span class="num">5</span><span class="lv">8K → 5K</span><img src="assets/show/world5.jpg" alt="日光圣殿·兔祖师圣殿" loading="lazy"></div>
+        <div class="body"><h3>日光圣殿<small>兔祖师圣殿</small></h3><p>布局与官子。学会先占大场，再把最后一颗棋子收得干干净净。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+      <a class="wcard reveal" style="--c:var(--w6)" href="world3d.html?all=1&nointro=1&w=6">
+        <div class="pic"><span class="num">6</span><span class="lv">5K → 冲段</span><img src="assets/show/world6.jpg" alt="丰盛庆典·天空城" loading="lazy"></div>
+        <div class="body"><h3>丰盛庆典<small>天空城</small></h3><p>对局阶梯。一盘一盘真下，把前面学的全部串成一整局。</p><span class="go">带我去 →</span></div><i class="glaze"></i>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 现场试玩 ===== -->
+<section class="sec play" id="play">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="kicker">Live · 就在这页里开</div>
+      <h2>不用截图，现场开给你看</h2>
+      <p class="lead">左边是真正的 3D 世界，右边是真正的课堂引擎。点一下海报就在这一页里启动，不是视频，是能玩的。</p>
+    </div>
+    <div class="stages">
+      <div class="frame reveal">
+        <div class="screen">
+          <div class="poster" data-src="world3d.html?all=1&nointro=1" style="background-image:url(assets/show/w1.jpg)"><div class="pl">▶</div><div class="tip">点一下，3D 世界在这里开</div></div>
+        </div>
+        <div class="cap"><div><b>3D 世界</b><br><span>方向键走路 · 拖动看风景 · 走到站点进课</span></div><a href="world3d.html?all=1&nointro=1" target="_blank" rel="noopener">全屏打开 ↗</a></div>
+      </div>
+      <div class="frame reveal">
+        <div class="screen">
+          <div class="poster" data-src="index.html?stay=1&ch=1" style="background-image:url(assets/show/lesson2d.jpg),url(assets/show/overlay.jpg)"><div class="pl">▶</div><div class="tip">点一下，直接试第 1 关</div></div>
+        </div>
+        <div class="cap"><div><b>课堂 · 第 1 关</b><br><span>糯糯真人配音带着走，点错不骂人</span></div><a href="index.html?stay=1&ch=1" target="_blank" rel="noopener">全屏打开 ↗</a></div>
+      </div>
+    </div>
+    <div class="playhint"><span>两个窗口都是项目原版文件，没有另做一套</span><span>首次加载会下载模型，稍等两秒</span><span>没网也能玩：双击 HTML 就开</span></div>
+  </div>
+</section>
+
+<!-- ===== 数字 ===== -->
+<section class="sec nums" id="nums">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="kicker">By the numbers</div>
+      <h2>做出来的，不是画出来的</h2>
+      <p class="lead">下面每一个数都能在项目目录里数出来。</p>
+    </div>
+    <div class="numgrid">
+      <div class="num reveal"><b data-n="232">0</b><span>关卡 · 29 + 15 章</span></div>
+      <div class="num reveal"><b data-n="2858">0</b><span>句真人配音 · 零机器音</span></div>
+      <div class="num reveal"><b>3<em>语</em></b><span>中 · 英 · 德 同步</span></div>
+      <div class="num reveal"><b data-n="6">0</b><span>个世界 · 一条棋盘路</span></div>
+      <div class="num reveal"><b>0<em>后端</em></b><span>离线可玩 · 不收集任何数据</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 糯糯 ===== -->
+<section class="sec mentor" id="mentor">
+  <div class="wrap mgrid">
+    <div class="mpic reveal">
+      <img src="assets/show/bunny_front.png" alt="糯糯">
+      <div class="bubble">深呼吸，慢慢想，糯糯陪着你。</div>
+    </div>
+    <div class="reveal">
+      <div class="kicker">Mentor · 糯糯</div>
+      <h2>一只不催你的白瓷小兔</h2>
+      <p class="lead">四到八岁的孩子，最怕的不是难题，是被催。糯糯只做三件事：</p>
+      <div class="pill"><div class="ic">👀</div><div><b>先看，再动手</b><span>每一关先演给你看，看懂了才轮到你落子。</span></div></div>
+      <div class="pill"><div class="ic">🎧</div><div><b>用真人的声音陪着</b><span>2858 句配音全是真人录的，中英德三种语言随时切换。</span></div></div>
+      <div class="pill"><div class="ic">🌱</div><div><b>错了不骂人，只多给一次</b><span>引擎是唯一裁判，判错了就再来一次，没有倒计时。</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 家长 ===== -->
+<section class="sec honest" id="parents">
+  <div class="wrap">
+    <div class="reveal">
+      <div class="kicker">For parents · 30 秒看懂</div>
+      <h2>说清楚它是什么，也说清楚它不是什么</h2>
+      <p class="lead">这一段写给家长，句句能核对。</p>
+    </div>
+    <div class="grid">
+      <div class="hcard reveal"><h4><i>✓</i>课程覆盖 25 级到 5 级的骨架</h4><p>232 关按六个世界顺序排开，从「气」到对局阶梯。它是一套完整的启蒙骨架，不是「学完就是 5 级」的承诺，段位要靠真实对局积累。</p></div>
+      <div class="hcard reveal"><h4><i>✓</i>全部离线，零账号零收集</h4><p>没有服务器、没有登录、没有任何上传。双击 HTML 文件就能开，进度只存在这台电脑的浏览器里。</p></div>
+      <div class="hcard reveal"><h4><i>✓</i>配音全是真人</h4><p>2858 句全部为真人录音，中文、英文、德语三语。项目有硬规矩：机器合成音一句都不允许进来。</p></div>
+      <div class="hcard reveal"><h4><i>✓</i>每次改动跑四道自检</h4><p>232 关回归、反向验证、3D 教室端到端、零机器音扫描，四道闸门全绿才允许合并或部署。</p></div>
+      <div class="hcard warn reveal"><h4><i>!</i>建议家长陪前三关</h4><p>孩子第一次见「气」这个概念，旁边有人一起数会快很多。之后可以放手。</p></div>
+      <div class="hcard warn reveal"><h4><i>!</i>需要一台能开浏览器的电脑</h4><p>3D 世界用的是浏览器自带的 WebGL，五年内的笔记本都够。手机能看，但键盘走路的体验更好。</p></div>
+    </div>
+    <details class="ver reveal">
+      <summary>这一版是怎么合成的（给接手的人看）</summary>
+      <ol>
+        <li>项目里同时存在 2D 课堂 <code>index.html</code>、3D 世界 <code>world3d.html</code>、旧切片 <code>scene.html</code> / <code>world_slice.html</code> 和 <code>deploy/</code> 里的旧副本。</li>
+        <li>本页不改任何一版的游戏逻辑，只做一个统一入口：开屏用同一个兔子模型与同一套白瓷材质现场渲染；六世界卡片用项目里已有的概念图；试玩窗口直接嵌原版文件。</li>
+        <li>唯一动到游戏的地方：<code>world3d.html</code> 末尾新增 <code>?w=1..6</code> 参数，用来从本页直接落进某个世界。没有这个参数时行为不变。</li>
+        <li>入口：<code>show.html</code>（本页） → <code>world3d.html?all=1</code>（3D 世界） → <code>index.html?stay=1</code>（2D 课堂）。</li>
+      </ol>
+    </details>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    <div>棋子大冒险 · 展示版 · 2026-09-25</div>
+    <div><a href="world3d.html?all=1&nointro=1">3D 世界</a><a href="index.html?stay=1">2D 课堂</a><a href="#top">回到顶部</a></div>
+  </div>
+</footer>
+
+<!-- ===== 页面交互 ===== -->
+<script>
+(function(){
+  // 滚动揭示
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{el.style.transitionDelay=(i%6)*60+'ms';io.observe(el);});
+  // 数字跳动
+  const nio=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const b=e.target,n=+b.dataset.n,t0=performance.now();
+    (function tick(t){const p=Math.min(1,(t-t0)/1400),k=1-Math.pow(1-p,3);b.textContent=Math.round(n*k);if(p<1)requestAnimationFrame(tick);})(t0);nio.unobserve(b);}),{threshold:.5});
+  document.querySelectorAll('[data-n]').forEach(b=>nio.observe(b));
+  // 海报 → iframe 现场开
+  document.querySelectorAll('.poster').forEach(p=>p.addEventListener('click',()=>{
+    const f=document.createElement('iframe');f.src=p.dataset.src;f.allow='autoplay';f.setAttribute('loading','eager');
+    p.parentNode.appendChild(f);p.remove();
+  }));
+})();
+</script>
+
+<!-- ===== 开屏 3D:与 world3d 同一套 three / 同一只兔子 / 同一套白瓷材质 ===== -->
+<!-- three 加载:http/https 走本地 vendor;file:// 下 Chrome 禁止模块跨文件 import,走 CDN 兜底(有意保留,保双击能开) -->
+<script src="assets/models/bunny_tail.js"></script>
+<script>(function(){var b=/^https?:$/.test(location.protocol)?'./vendor/three/':'https://cdn.jsdelivr.net/npm/three@0.165.0/';document.write('<script type="importmap">{"imports":{"three":"'+b+'build/three.module.js","three/addons/":"'+b+'examples/jsm/"}}<\/script>');})();</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+window.__heroReady=true;if(window.__unstatic)window.__unstatic();
+
+const canvas=document.getElementById('stage');
+const hero=document.querySelector('.hero');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<760?1.5:2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(30,1,.1,100);
+
+/* —— 材质:与 world3d 一字不差的白瓷 —— */
+const CE=new THREE.MeshPhysicalMaterial({color:0xFBF9F4,roughness:.42,clearcoat:.28,clearcoatRoughness:.55});
+const WSTONE=new THREE.MeshPhysicalMaterial({color:0xFBFBF9,roughness:.25,clearcoat:.4,clearcoatRoughness:.3});
+const BLACKM=new THREE.MeshPhysicalMaterial({color:0x1A1B1E,roughness:.28,clearcoat:.4,clearcoatRoughness:.3});
+const SOFTPINK=new THREE.MeshPhysicalMaterial({color:0xF9CCDA,roughness:.5,clearcoat:.2});
+const GOLD=new THREE.MeshPhysicalMaterial({color:0xF2C76E,roughness:.35,metalness:.15,clearcoat:.5});
+const WOOD=new THREE.MeshPhysicalMaterial({color:0xD9A86C,roughness:.55,clearcoat:.15});
+
+/* —— 灯光:暖主光 + 天光 + 粉色轮廓 —— */
+scene.add(new THREE.HemisphereLight(0xFFFBF2,0xE6D3BC,.95));
+const key=new THREE.DirectionalLight(0xFFF3E0,1.7);key.position.set(4.5,7.5,5);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);key.shadow.radius=6;key.shadow.bias=-.0006;
+Object.assign(key.shadow.camera,{left:-6,right:6,top:6,bottom:-6,near:1,far:25});scene.add(key);
+const fill=new THREE.DirectionalLight(0xCFE5FF,.55);fill.position.set(-5,3,-3);scene.add(fill);
+const rim=new THREE.PointLight(0xF9CCDA,14,20,1.6);rim.position.set(-2,3.2,-3.5);scene.add(rim);
+const rim2=new THREE.PointLight(0xF2C76E,10,20,1.6);rim2.position.set(3,2.4,-3);scene.add(rim2);
+
+/* —— 地面:柔影 + 白瓷圆台 —— */
+const ground=new THREE.Mesh(new THREE.CircleGeometry(30,64),new THREE.ShadowMaterial({opacity:.16}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const root=new THREE.Group();scene.add(root);
+const plinth=new THREE.Mesh(new THREE.CylinderGeometry(2.7,2.9,.36,72),CE);plinth.position.y=.18;plinth.castShadow=plinth.receiveShadow=true;root.add(plinth);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(2.7,.11,20,90),GOLD);ring.rotation.x=Math.PI/2;ring.position.y=.36;root.add(ring);
+
+/* —— 9×9 白瓷棋盘 + 一个「气」的小故事 —— */
+function boardTexture(){
+  const s=512,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');
+  g.fillStyle='#F6EEDD';g.fillRect(0,0,s,s);
+  g.strokeStyle='#C89A5B';g.lineWidth=2.2;const m=s*.09,step=(s-2*m)/8;
+  for(let i=0;i<9;i++){g.beginPath();g.moveTo(m+i*step,m);g.lineTo(m+i*step,s-m);g.stroke();g.beginPath();g.moveTo(m,m+i*step);g.lineTo(s-m,m+i*step);g.stroke();}
+  g.fillStyle='#C89A5B';[[2,2],[6,2],[4,4],[2,6],[6,6]].forEach(([i,j])=>{g.beginPath();g.arc(m+i*step,m+j*step,5,0,7);g.fill();});
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;
+}
+const board=new THREE.Group();board.position.set(1.55,.36,.9);board.rotation.y=-.35;root.add(board);
+const slab=new THREE.Mesh(new RoundedBoxGeometry(2.1,.2,2.1,4,.07),new THREE.MeshPhysicalMaterial({color:0xffffff,map:boardTexture(),roughness:.5,clearcoat:.3}));
+slab.position.y=.1;slab.castShadow=slab.receiveShadow=true;board.add(slab);
+const stoneGeo=new THREE.SphereGeometry(.105,28,20);stoneGeo.scale(1,.52,1);
+const cell=2.1*.82/8,org=-2.1*.41;
+function stone(i,j,mat){const s=new THREE.Mesh(stoneGeo,mat);s.position.set(org+i*cell,.255,org+j*cell);s.castShadow=true;board.add(s);return s;}
+stone(4,4,BLACKM);stone(3,4,WSTONE);stone(5,4,WSTONE);stone(4,3,WSTONE);
+const lastLib=new THREE.Mesh(new THREE.SphereGeometry(.05,12,12),SOFTPINK);lastLib.position.set(org+4*cell,.24,org+5*cell);board.add(lastLib);
+stone(1,1,BLACKM);stone(7,6,WSTONE);stone(6,7,BLACKM);
+
+/* —— 漂浮棋子云 —— */
+const cloud=new THREE.Group();root.add(cloud);
+const floaters=[],_wp=new THREE.Vector3();
+for(let i=0;i<30;i++){
+  const a=i/30*Math.PI*2,r=3.4+Math.random()*3.2,big=r>5.4&&Math.random()<.5;
+  const geo=new THREE.SphereGeometry(big?.34:.17+Math.random()*.07,32,22);geo.scale(1,.5,1);
+  const m=new THREE.Mesh(geo,i%2?BLACKM:WSTONE);
+  m.userData={a,r,y:(r<5?2.6:1.2)+Math.random()*2.4,ph:Math.random()*6.28,sp:.06+Math.random()*.08,tilt:Math.random()*.8-.4};
+  m.castShadow=true;cloud.add(m);floaters.push(m);
+}
+/* —— 金色浮尘 —— */
+const N=160,pos=new Float32Array(N*3),pg=new THREE.BufferGeometry();
+for(let i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*14;pos[i*3+1]=Math.random()*6;pos[i*3+2]=(Math.random()-.5)*14;}
+pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+const dust=new THREE.Points(pg,new THREE.PointsMaterial({color:0xF2C76E,size:.05,transparent:true,opacity:.75,depthWrite:false}));scene.add(dust);
+
+/* —— 兔子:同一只 GLB,同一套 furify —— */
+const DRACO=new DRACOLoader().setDecoderPath(/^https?:$/.test(location.protocol)?'./vendor/three/examples/jsm/libs/draco/gltf/':'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/draco/gltf/');
+const newGLTF=()=>new GLTFLoader().setDRACOLoader(DRACO);
+const bunnyWrap=new THREE.Group();bunnyWrap.position.y=.36;bunnyWrap.scale.setScalar(.001);root.add(bunnyWrap);
+let mixer=null,bunnyIn=0;
+function furify(rootObj){rootObj.traverse(o=>{if(o.userData&&o.userData.noFurify)return;if(o.isMesh&&o.material){const map=o.material.map;
+  o.material=new THREE.MeshPhysicalMaterial({map,color:0xffffff,emissive:0xffffff,emissiveMap:map,emissiveIntensity:.38,roughness:.9,sheen:1,sheenRoughness:.55,sheenColor:new THREE.Color(0xFFF6EE)});
+  o.castShadow=true;o.frustumCulled=false;}});}
+function adopt(glb){
+  const g=glb.scene;furify(g);
+  window.__tailResult=window.BunnyTail?window.BunnyTail.applyTail(g,THREE,{mode:'hero'}):null;
+  const box=new THREE.Box3().setFromObject(g),h=box.max.y-box.min.y,sc=2.05/h;
+  const cx=(box.min.x+box.max.x)/2,cz=(box.min.z+box.max.z)/2;
+  g.scale.setScalar(sc);g.position.set(-cx*sc,-box.min.y*sc,-cz*sc);
+  const inner=new THREE.Group();inner.rotation.y=-Math.PI/2+.25;inner.add(g);bunnyWrap.add(inner);
+  if(glb.animations&&glb.animations.length){mixer=new THREE.AnimationMixer(g);mixer.clipAction(glb.animations[0]).play();}
+  bunnyIn=performance.now();ready();
+}
+function fallbackBunny(){
+  const H=1.7,g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.SphereGeometry(H*.24,32,24),CE);body.scale.set(1,1.18,.92);body.position.y=H*.29;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(H*.185,32,24),CE);head.position.set(0,H*.62,H*.01);g.add(head);
+  const eG=new THREE.CapsuleGeometry(H*.05,H*.24,8,14);
+  [[-1,.12],[1,-.12]].forEach(([s,r])=>{const e=new THREE.Mesh(eG,CE);e.position.set(s*H*.085,H*.92,0);e.rotation.z=r;g.add(e);
+    const i=new THREE.Mesh(new THREE.CapsuleGeometry(H*.022,H*.15,6,10),SOFTPINK);i.position.set(s*H*.085,H*.925,H*.03);i.rotation.z=r;g.add(i);});
+  const eyeM=new THREE.MeshStandardMaterial({color:0x2A2A2E,roughness:.35});
+  [-1,1].forEach(s=>{const y=new THREE.Mesh(new THREE.SphereGeometry(H*.02,10,10),eyeM);y.position.set(s*H*.065,H*.65,H*.165);g.add(y);
+    const c=new THREE.Mesh(new THREE.SphereGeometry(H*.026,10,10),SOFTPINK);c.position.set(s*H*.1,H*.6,H*.15);g.add(c);});
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  bunnyWrap.add(g);bunnyIn=performance.now();ready();
+}
+function tryB64(){
+  const go=()=>{try{const bin=atob(window.BUNNY_GLB_B64);const buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    newGLTF().parse(buf.buffer,'assets/models/',adopt,fallbackBunny);}catch(e){fallbackBunny();}};
+  if(window.BUNNY_GLB_B64)go();else{const s=document.createElement('script');s.src='assets/models/bunny_glb.js';s.onload=go;s.onerror=fallbackBunny;document.head.appendChild(s);}
+}
+if(location.protocol==='file:')tryB64();
+else newGLTF().load('assets/models/anim/bunny_idle.glb',adopt,undefined,tryB64);
+setTimeout(()=>{if(!bunnyIn)ready();},6000);   // 兜底:6 秒没到货也先揭幕
+
+/* —— 相机 & 交互 —— */
+const target=new THREE.Vector3(0,1.25,0);
+let offX=0,distM=0;
+let mx=0,my=0,tmx=0,tmy=0,scrollP=0;
+addEventListener('pointermove',e=>{tmx=(e.clientX/innerWidth-.5)*2;tmy=(e.clientY/innerHeight-.5)*2;},{passive:true});
+addEventListener('scroll',()=>{scrollP=Math.min(1,scrollY/Math.max(1,hero.offsetHeight));},{passive:true});
+function resize(){const w=hero.clientWidth,h=hero.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();offX=w>900?1.9:0;distM=w>900?0:2.2;root.position.x=offX;target.x=offX*.55;}
+addEventListener('resize',resize);resize();
+const clock=new THREE.Clock();let revealed=false,t0=0;
+function ready(){if(revealed)return;revealed=true;t0=performance.now();document.getElementById('loader').classList.add('off');if(window.__unstatic)window.__unstatic();}
+const ease=(x)=>1-Math.pow(1-x,3),elastic=x=>x===0?0:x===1?1:Math.pow(2,-10*x)*Math.sin((x*10-.75)*(2*Math.PI/3))+1;
+function frame(){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,clock.getDelta()),now=performance.now();
+  if(mixer)mixer.update(dt);
+  mx+=(tmx-mx)*.04;my+=(tmy-my)*.04;
+  const el=revealed?(now-t0)/1000:0,intro=ease(Math.min(1,el/1.6));
+  // 兔子弹出
+  if(bunnyIn){const p=Math.min(1,(now-bunnyIn)/1100);bunnyWrap.scale.setScalar(Math.max(.001,elastic(p)));}
+  bunnyWrap.rotation.y=mx*.35+Math.sin(now*.0006)*.08;
+  // 棋子云:飞入 + 呼吸
+  floaters.forEach((m,i)=>{const u=m.userData,a=u.a+now*.00004*(i%2?1:-1);
+    const rr=u.r*(0.4+0.6*intro);m.position.set(Math.cos(a)*rr,u.y*intro+Math.sin(now*.001*u.sp*10+u.ph)*.18,Math.sin(a)*rr);
+    m.rotation.set(u.tilt+Math.sin(now*.0007+u.ph)*.15,a,Math.cos(now*.0005+u.ph)*.12);
+    /* 飘到镜头跟前(1.6 以内)的棋子缩没,免得一颗大黑子糊住画面(手机窄屏尤其) */
+    m.getWorldPosition(_wp);m.scale.setScalar(THREE.MathUtils.clamp((camera.position.distanceTo(_wp)-1.6)/1.4,0,1));});
+  dust.rotation.y=now*.00002;dust.position.y=Math.sin(now*.0003)*.2;
+  // 相机:缓慢环绕 + 鼠标视差 + 滚动抬升
+  const yaw=now*.00008+mx*.22,dist=6.9+distM+scrollP*4-intro*.4,h=2.3-my*.35+scrollP*3.2;
+  camera.position.set(target.x+Math.sin(yaw)*dist,h,Math.cos(yaw)*dist);camera.lookAt(target.x,target.y-scrollP*.6,target.z);
+  root.position.y=-scrollP*.8;
+  canvas.style.opacity=String(1-scrollP*.9);
+  if(scrollP<1.02)renderer.render(scene,camera);
+}
+frame();
+</script>
+<script>
+// three 没加载(离线/CDN 挂)→ 静态开屏兜底,页面其余部分照常
+/* 3D 超过 9 秒还没起来(CDN 慢、file:// 解码慢)先显静态兔子;3D 一旦就绪立刻换回,不会卡在静态版 */
+window.__unstatic=function(){var h=document.querySelector('.hero');if(h&&h.classList.contains('static')){h.classList.remove('static');document.getElementById('stage').style.display='';}};
+setTimeout(function(){if(!window.__heroReady){document.querySelector('.hero').classList.add('static');document.getElementById('loader').classList.add('off');document.getElementById('stage').style.display='none';}},9000);
+</script>
+</body>
+</html>

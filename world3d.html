@@ -450,13 +450,15 @@
 <script src="world_zones.js?v=2" onerror="this.remove()"></script>
 <script src="qz-class3d.js?v=3" onerror="this.remove()"></script>
 <script src="assets/models/bunny_glb.js"></script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}</script>
+<script src="assets/models/bunny_tail.js"></script>
+<!-- three 加载:http/https 走本地 vendor;file:// 下 Chrome 禁止模块跨文件 import,走 CDN 兜底(有意保留,保双击能开) -->
+<script>(function(){var b=/^https?:$/.test(location.protocol)?'./vendor/three/':'https://cdn.jsdelivr.net/npm/three@0.165.0/';document.write('<script type="importmap">{"imports":{"three":"'+b+'build/three.module.js","three/addons/":"'+b+'examples/jsm/"}}<\/script>');})();</script>
 <script type="module">
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
 import {clone as skClone} from 'three/addons/utils/SkeletonUtils.js';
-const DRACO=new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/draco/gltf/');
+const DRACO=new DRACOLoader().setDecoderPath(/^https?:$/.test(location.protocol)?'./vendor/three/examples/jsm/libs/draco/gltf/':'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/draco/gltf/');
 const newGLTF=()=>new GLTFLoader().setDRACOLoader(DRACO);
 
 const app=document.getElementById('app');
@@ -815,6 +817,7 @@ function deEyeTex(tex){
 }
 function furify(root){
   root.traverse(o=>{
+    if(o.userData&&o.userData.noFurify)return;
     if(o.isMesh&&o.material){
       const old=o.material;
       const cleaned=old.map; // 贴纸脸方案已弃用:保留模型原生画脸(STICKER=false)
@@ -874,7 +877,6 @@ function bunnyGLB(height){
     g.scale.setScalar(sc);g.position.set(-cx*sc,-glbBox.min.y*sc,-cz*sc);
     inner.add(g);
     const H=height;entry.H=H;entry.animRoot=g;
-    attachTailBall(g);          // 每只兔子各挂一颗尾巴毛球(原型被克隆,球不会跟着复制)
     attachActions(entry);
   }
   if(glbProto)fill();else pendingSkins.push(fill);
@@ -952,93 +954,10 @@ window.__bunnyJump=()=>{
   e.act.jump.reset().fadeIn(.12).play();
   if(from&&from!==e.act.jump)from.fadeOut(.12);
 };
-/* 尾巴收成小圆点:模型朝 +X,尾巴是 -X 低处那簇顶点。
-   在共享原型上改一次几何,全场兔子(含 NPC/雕像)同时生效;骨骼蒙皮在此之后计算,不受影响。 */
-const TAIL={x0:-0.018,y0:0.055,y1:0.30,r:0.055,push:0.026,   // r 调大一点,确保盖住删面留下的洞
-  debug:/[?&]tailDbg/.test(location.search)};  // r=毛球半径,push=往身体里贴多少
-function nubTail(root){
-  let moved=0;
-  root.traverse(o=>{
-    if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
-    const p=o.geometry.attributes.position, a=p.array;
-    const inTail=i=>a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1;
-    /* 锚点取"尾根"(最贴近身体的那一端),不是整簇重心——
-       否则球心会落在半空,尾巴看着离身。 */
-    let cy=0,cz=0,n=0,xRoot=-1e9;
-    for(let i=0;i<a.length;i+=3)if(inTail(i)){cy+=a[i+1];cz+=a[i+2];n++;if(a[i]>xRoot)xRoot=a[i];}
-    if(!n)return;
-    cy/=n;cz/=n;
-    TAIL.anchor=[xRoot,cy,cz];
-    if(TAIL.debug){
-      for(let i=0;i<a.length;i+=3)if(inTail(i)){a[i+1]+=0.5;moved++;}
-    }else{
-      /* 直接删掉尾巴的三角面。
-         ⚠️ 试过"把顶点塌陷进身体",不行:蒙皮会按各自骨权重把它们重新拉开,
-            推多深都会在臀部渗出一片粉色。删面才是根治。 */
-      const idx=o.geometry.index;
-      if(idx){
-        const src=idx.array,keep=[];
-        const vIn=v=>{const i=v*3;return a[i]<TAIL.x0&&a[i+1]>TAIL.y0&&a[i+1]<TAIL.y1;};
-        for(let f=0;f<src.length;f+=3){
-          const A=src[f],B=src[f+1],C=src[f+2];
-          /* 只要沾到尾巴区就删:只删"三点全中"的话,边界面会被拉成一片粉色楔子。
-             留下的洞由毛球盖住。 */
-          if(vIn(A)||vIn(B)||vIn(C)){moved++;continue;}
-          keep.push(A,B,C);
-        }
-        const Arr=src.length>65535?Uint32Array:Uint16Array;
-        o.geometry.setIndex(new THREE.BufferAttribute(new Arr(keep),1));
-      }
-    }
-    p.needsUpdate=true;
-    if(o.geometry.attributes.normal)o.geometry.computeVertexNormals();  // 重算法线,毛球才有立体感
-    o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox();
-  });
-  if(moved)console.log('[tail] 删掉尾巴三角面',moved,'个');
-  return root;
-}
-/* 挂一个程序生成的毛球当尾巴:绑在胯骨上,跟着走路/跳跃动画一起动。
-   球体由几颗小球簇成,边缘不规则 → 读起来是绒毛,不是塑料弹珠。 */
-const TAILMAT=new THREE.MeshStandardMaterial({color:0xFFFDFB,roughness:.98,flatShading:false});
-function makeTailBall(){
-  const g=new THREE.Group();
-  const R=TAIL.r;
-  g.add(new THREE.Mesh(new THREE.SphereGeometry(R,16,12),TAILMAT));
-  const puffs=[[.62,.42,0,.55],[-.5,.55,.35,.5],[-.35,-.5,-.4,.52],[.15,-.6,.45,.48],[-.6,.05,-.5,.46]];
-  puffs.forEach(([px,py,pz,s])=>{
-    const m=new THREE.Mesh(new THREE.SphereGeometry(R*s,12,9),TAILMAT);
-    m.position.set(px*R*.85,py*R*.85,pz*R*.85);g.add(m);
-  });
-  g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-  return g;
-}
-function attachTailBall(root){
-  if(!TAIL.anchor||TAIL.debug)return;
-  let bone=null;
-  root.traverse(o=>{if(o.isBone&&!bone&&(o.name==='Pelvis'||o.name==='Hip'))bone=o;});
-  const ball=makeTailBall();
-  (window.__tailBalls=window.__tailBalls||[]).push(ball);  // QA:运行时调偏移用
-  /* 领导:"尾巴没贴着屁股"。不再依赖删面锚点(它偏侧偏低),
-     直接用包围盒定位:模型面朝 +X,屁股=min.x 一侧,球放屁股正中偏内,y=臀高 */
-  const bb=glbBox,H=bb.max.y-bb.min.y;
-  const world=new THREE.Vector3(bb.min.x+H*.065,bb.min.y+H*.30,(bb.min.z+bb.max.z)/2);
-  if(bone){
-    root.updateMatrixWorld(true);
-    root.localToWorld(world);
-    bone.worldToLocal(world);                          // 换算到骨骼局部坐标
-    ball.position.copy(world);
-    bone.add(ball);                                    // 跟着胯骨动
-    if(!window.__tailBallLogged){window.__tailBallLogged=1;console.log('[tail] 毛球已绑到',bone.name);}
-  }else{
-    ball.position.set(ax+0.012,ay,az);root.add(ball);  // 无骨骼兜底
-  }
-  return ball;
-}
-window.__tailTune=(k,x0)=>{TAIL.k=k;if(x0!=null)TAIL.x0=x0;console.log('改 TAIL 后需重载生效',TAIL);};
 function adoptGLB(glb){
   try{
     furify(glb.scene);
-    nubTail(glb.scene);
+    if(window.BunnyTail)window.BunnyTail.applyTail(glb.scene,THREE,{mode:'game'});
     glbProto=glb.scene;
     glbBox=new THREE.Box3().setFromObject(glbProto);
     if(glb.animations&&glb.animations.length)CLIPS.idle=glb.animations[0];
@@ -2786,6 +2705,10 @@ window.__w3={pos:()=>player.position.toArray(),go:(x,z)=>{target.set(x,0,z);movi
   clickGrid:(i,j)=>pClickGrid(i,j),stepNow:(ms)=>step(t0+(ms||16)),
   bunnies:()=>animBunnies.length,home:()=>resetHome(),
   pstate:()=>({playMode,pOver,pBusy,board:pg?pg.map(r=>r.join("")).join("|"):null,panel:zoneEl.textContent.replace(/\s+/g,' ').slice(0,80)})};
+/* 展示版入口(show.html)用:?w=1..6 直接落到对应世界;坐标与上方 QA_WORLDS 一字不差,无参数时零影响 */
+{const wq=new URLSearchParams(location.search).get('w');
+ const WTP={1:[-44,4],2:[-22,4],3:[72,14],4:[94,-19],5:[44,4],6:[138,-34]}[wq];
+ if(WTP)setTimeout(()=>{try{window.__w3.tp(WTP[0],WTP[1]);}catch(e){}},700);}
 </script>
 </body>
 </html>
