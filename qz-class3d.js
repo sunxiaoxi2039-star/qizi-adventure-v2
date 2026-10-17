@@ -6,7 +6,7 @@
    由 world3d.html 模块调用 window.QZ_CLASS3D_INSTALL(deps) 安装。 */
 window.QZ_CLASS3D_INSTALL = function (D) {
   "use strict";
-  const { THREE, scene, propInstance, loadProp, bunnyGLB, tintBunny } = D;
+  const { THREE, scene, propInstance, loadProp, bunnyGLB, tintBunny, cam: CAM } = D;
   const CX = 500, CZ = 0;              // 教室中心
   const TABLE_H = 1.5, BW = 7.2;       // 桌高 / 棋盘边长(米)
   const S = { active: false, built: false, tex: null, boardMesh: null, stoneGrp: null, lastBoard: "", pollT: 0 };
@@ -96,15 +96,103 @@ window.QZ_CLASS3D_INSTALL = function (D) {
     }
   }
 
+  /* ---- 机位自适应:棋盘四角必须全在屏幕内,且不被 HUD/气泡/按钮压住 ----
+     机位 = 注视点 (CX,TABLE_H,CZ+lz) 沿俯角 p 退后 d。原固定机位 = (D0,P0,LZ0)。
+     每次视口或 UI 占位变了就重算:量 DOM 得到障碍矩形,二分出装得下的最小 d;
+     lz 把棋盘在屏幕上上下挪,躲开上下两组 UI;窄屏再把俯角抬高(棋盘更方,格子更大)。 */
+  const P0 = Math.atan2(8.5, 9.8), D0 = Math.hypot(8.5, 9.8), LZ0 = -.8, PMAX = 60 * Math.PI / 180;
+  const HB = BW / 2 + .2, EDGE = 8, PADPX = 6;   // 棋盘半边+余量(米) / 屏幕边距 / 障碍外扩(px)
+  const FIT = { d: D0, p: P0, lz: LZ0, cd: D0, cp: P0, clz: LZ0, sig: "", W: 0, H: 0, bubTop: 1e9 };
+  function uiRects(W, H) {
+    const out = [];
+    const push = (el, own) => {
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden") return;
+      if (!own && (cs.position !== "fixed" || cs.pointerEvents === "none" || +cs.opacity < .05)) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4 || r.width * r.height > W * H * .4) return;
+      if (r.right < 0 || r.left > W || r.bottom < 0 || r.top > H) return;
+      let top = r.top;
+      if (el.id === "bubble") top = FIT.bubTop = Math.min(FIT.bubTop, top);  // 气泡变高只收不放,免得棋盘跟着文字长短来回跳
+      out.push([r.left - PADPX, r.right + PADPX, top - PADPX, r.bottom + PADPX]);
+    };
+    for (const el of document.body.children)
+      if (el.id !== "qzApp" && !/^(CANVAS|SCRIPT|STYLE)$/.test(el.tagName)) push(el, false);
+    document.querySelectorAll("#qzApp header > *").forEach(el => push(el, true));
+    push(document.getElementById("bubble"), true); push(document.getElementById("btns"), true);
+    return out;
+  }
+  /* 用"棋盘中心到镜头的纵深 Z"管大小、"棋盘中心偏离画面中心的正切 t"管上下位置,两者互不牵连:
+     lz = t*Z/sin p,d = Z - lz*cos p。原机位 Z0≈12.37,T0≈-0.042(棋盘略低于画面中心)。 */
+  const Z0 = D0 + LZ0 * Math.cos(P0), T0 = LZ0 * Math.sin(P0) / Z0;
+  function span(W, H, F, obs, Z, p) {      // 给定纵深 Z、俯角 p:能躲开所有障碍的 t,没有就 null
+    const s = Math.sin(p), c = Math.cos(p);
+    const zf = Z + HB * c, zn = Z - HB * c; if (zn < .5) return null;
+    const wf = F * HB / zf, wn = F * HB / zn;
+    if (wn > W / 2 - EDGE) return null;    // 左右装不下,只能再退远
+    const yf = (t) => H / 2 - F * (t * Z + HB * s) / zf, yn = (t) => H / 2 - F * (t * Z - HB * s) / zn;
+    const bad = (t) => {                   // 位 1=顶到上面的东西 位 2=压到下面的东西
+      const f = yf(t), n = yn(t);
+      let m = 0;
+      if (f < EDGE) m |= 1;
+      if (n > H - EDGE) m |= 2;
+      for (const o of obs) {
+        const ya = Math.max(o[2], f), yb = Math.min(o[3], n); if (ya >= yb) continue;
+        const hw = wf + (wn - wf) * (yb - f) / (n - f);
+        if (o[0] < W / 2 + hw && o[1] > W / 2 - hw) m |= (o[2] + o[3] < H ? 1 : 2);
+      }
+      return m;
+    };
+    const LO = -1.2, HI = 1.2;
+    if ((bad(LO) & 1) || (bad(HI) & 2)) return null;
+    let a = LO, b = HI, lo, hi;
+    if (bad(HI) & 1) { for (let i = 0; i < 20; i++) { const m = (a + b) / 2; (bad(m) & 1) ? b = m : a = m; } hi = a; } else hi = HI;
+    a = LO; b = HI;
+    if (bad(LO) & 2) { for (let i = 0; i < 20; i++) { const m = (a + b) / 2; (bad(m) & 2) ? a = m : b = m; } lo = b; } else lo = LO;
+    if (lo > hi) return null;
+    const t = Math.min(hi, Math.max(lo, T0)), lz = t * Z / s;
+    return { z: Z, p, lz, d: Z - lz * c, h: yn(t) - yf(t) };
+  }
+  function solve(W, H, F, obs, p) {        // 给定俯角:装得下的最小纵深(不比原机位更近)
+    let r = span(W, H, F, obs, Z0, p);
+    if (r) return r;
+    let a = Z0, b = 90, best = null;
+    for (let i = 0; i < 18; i++) { const m = (a + b) / 2; r = span(W, H, F, obs, m, p); if (r) { b = m; best = r; } else a = m; }
+    return best;
+  }
+  function refit(snap) {
+    const W = innerWidth, H = innerHeight; if (W < 2 || H < 2) return;
+    if (W !== FIT.W || H !== FIT.H) { FIT.W = W; FIT.H = H; FIT.bubTop = 1e9; FIT.sig = ""; }
+    const obs = uiRects(W, H);
+    const sig = W + "x" + H + ":" + obs.map(o => o.map(Math.round).join(",")).join(";");
+    if (sig !== FIT.sig) {
+      FIT.sig = sig;
+      const F = (H / 2) / Math.tan(((CAM && CAM.fov) || 42) * Math.PI / 360);
+      let best = solve(W, H, F, obs, P0);
+      if (!best || best.z > Z0 * 1.08) {   // 原俯角下棋盘得缩不少:试更陡的俯角,取"够高"的里面最平的
+        const cands = best ? [best] : [];
+        for (let p = P0 + .05; p <= PMAX + 1e-6; p += .05) { const r = solve(W, H, F, obs, p); if (r) cands.push(r); }
+        const top = Math.max.apply(null, cands.map(r => r.h));
+        best = cands.find(r => r.h >= top * .97) || best;
+      }
+      if (best) { FIT.d = best.d; FIT.p = best.p; FIT.lz = best.lz; }
+    }
+    if (snap) { FIT.cd = FIT.d; FIT.cp = FIT.p; FIT.clz = FIT.lz; }
+  }
+
   return {
     get active() { return S.active; },
-    enter() { build(); S.active = true; S.lastBoard = " "; S.texW = -1; document.body.classList.add("class3d"); },
+    enter() { build(); S.active = true; S.lastBoard = " "; S.texW = -1; document.body.classList.add("class3d");
+      try { refit(true); } catch (e) {} },
     exit() { S.active = false; document.body.classList.remove("class3d"); },
-    cam(want, look) {   // 每帧被 step() 调:教室固定机位(约42°俯角)+ 轻微呼吸
+    cam(want, look) {   // 每帧被 step() 调:教室机位(宽屏约42°俯角,随视口自适应)+ 轻微呼吸
       const t = performance.now() / 1000;
-      want.set(CX + Math.sin(t * .3) * .25, TABLE_H + 8.5, CZ + 9);
-      look.set(CX, TABLE_H, CZ - .8);
+      FIT.cd += (FIT.d - FIT.cd) * .16; FIT.cp += (FIT.p - FIT.cp) * .16; FIT.clz += (FIT.lz - FIT.clz) * .16;
+      want.set(CX + Math.sin(t * .3) * .25, TABLE_H + FIT.cd * Math.sin(FIT.cp), CZ + FIT.clz + FIT.cd * Math.cos(FIT.cp));
+      look.set(CX, TABLE_H, CZ + FIT.clz);
     },
+    get fit() { return { d: FIT.d, p: FIT.p * 180 / Math.PI, lz: FIT.lz, sig: FIT.sig }; },   // QA
     tick() {
       if (!S.active) return;
       /* ⚠️ 贴图必须在画布"已排版"后创建:build() 时画布常是空的,首次 GL 上传缓存空图,
@@ -128,7 +216,7 @@ window.QZ_CLASS3D_INSTALL = function (D) {
       }
       if (live && S.tex) S.tex.needsUpdate = true;  // 引擎每画一帧,桌面跟着变
       const now = performance.now();
-      if (now - S.pollT > 140) { S.pollT = now; try { syncStones(); } catch (e) {} }
+      if (now - S.pollT > 140) { S.pollT = now; try { syncStones(); } catch (e) {} try { refit(false); } catch (e) {} }
     },
     _dbg(mode) {        // QA:pink=纯色测几何 / tex=贴图 / re=重建贴图
       if (!S.boardMesh) return "no mesh";

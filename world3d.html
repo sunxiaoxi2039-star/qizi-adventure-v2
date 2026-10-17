@@ -27,7 +27,7 @@
   /* ===== 3D课堂(class3d):课程UI变透明浮层,棋盘由教室桌面接管 ===== */
   body.class3d #qzApp{background:transparent!important;pointer-events:none;
     backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
-  body.class3d #qzApp #bubble,body.class3d #qzApp button,body.class3d #qzApp .big,
+  body.class3d #qzApp button,body.class3d #qzApp .big,
   body.class3d #qzApp .chip,body.class3d #qzApp .node,body.class3d #qzApp .pill,
   body.class3d #qzApp .pdot,body.class3d #qzApp select{pointer-events:auto;}
   body.class3d #game{background:transparent!important;box-shadow:none!important;border:none!important;}
@@ -60,10 +60,20 @@
   /* 暗角(awwwards 级包裹感):极淡的暖色四角,把视线收回画面中心 */
   #vig{position:fixed;inset:0;pointer-events:none;z-index:5;
     background:radial-gradient(ellipse at 50% 42%,transparent 56%,rgba(70,50,25,.15) 100%);}
-  body.class3d #bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;z-index:62;
-    width:calc(100vw - 28px);max-width:560px;margin:0;}
-  body.class3d #game .btnrow{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:62;margin:0;white-space:nowrap;}
+  /* 课堂底部:气泡+按钮行贴底叠放。整块和气泡都不接点击(落子要穿过去打到 3D 画布),只有按钮自己接;
+     棋盘机位由 qz-class3d.js 量这两块的位置后自动让开 */
+  body.class3d #game.on{position:fixed;left:0;right:0;bottom:0;z-index:62;width:auto;margin:0;gap:8px;
+    padding:0 14px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none;}
+  body.class3d #bubble{width:100%;max-width:560px;margin:0;pointer-events:none;}
+  body.class3d #game .btnrow{margin:0;min-height:44px;align-items:center;}
+  @media (max-height:500px) and (orientation:landscape){   /* 矮横屏:气泡和按钮并排,把高度让给棋盘 */
+    body.class3d #game.on{flex-flow:row wrap;justify-content:center;align-items:center;}
+    body.class3d #bubble{flex:1 1 300px;width:auto;min-height:52px;padding:6px 12px;font-size:16px;}
+  }
   body.class3d .chap{background:rgba(255,255,255,.92);}
+  body.class3d #game .btnrow .big{min-width:64px;min-height:48px;padding:10px 20px;}
+  body.class3d #qzApp header .pill{min-width:44px;min-height:44px;}
+  @media (max-width:700px),(max-height:500px){body.class3d #mini,body.class3d #mnext{display:none!important;}}
   #zone{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(255,255,255,.94);
     border-radius:18px;padding:12px 20px;font-size:15px;color:#3a4a5a;box-shadow:0 4px 18px rgba(0,0,0,.12);
     display:none;text-align:center;max-width:86vw;line-height:1.6;}
@@ -124,7 +134,8 @@
 </head>
 <body>
 <div id="app"></div>
-<div id="loader"><div class="lorb"></div><p>糯糯正在铺雪毯…</p></div>
+<div id="loader"><div class="lorb"></div><p id="loaderMsg">糯糯正在铺雪毯…</p>
+  <p id="loaderSub" hidden></p><button id="loaderRetry" type="button" hidden>再试一次</button><button id="loaderLite" type="button" hidden>玩简版</button></div>
 <style>/* 领导:不要向量小兔子——加载页改白瓷呼吸珠 */
 .lorb{width:56px;height:56px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%,#FFFFFF,#F1EDE4 70%);
@@ -132,6 +143,57 @@
   animation:lorbBreath 1.6s ease-in-out infinite;}
 @keyframes lorbBreath{50%{transform:scale(1.12);box-shadow:0 8px 22px rgba(180,150,120,.36),inset 0 -4px 8px rgba(180,150,120,.12);}}
 </style>
+<style>/* 加载层上的两种提示:设备打不开 3D / 加载太慢。配色跟加载页走 */
+#loader.stuck .lorb{animation:none;opacity:.55;}
+#loader #loaderMsg,#loader #loaderSub{max-width:86vw;text-align:center;line-height:1.6;margin:0;}
+#loader #loaderSub{font-size:13px;font-weight:500;color:#b9a47c;margin-top:-10px;}
+#loaderRetry,#loaderLite{border:none;cursor:pointer;font:inherit;font-size:15px;font-weight:700;color:#7a5a2a;background:#fff;
+  padding:10px 26px;border-radius:999px;box-shadow:0 2px 0 #EFE4CC,0 4px 10px rgba(120,80,20,.15);margin:4px 6px;}
+#loaderLite{color:#4a6a3a;}
+#loaderRetry:active,#loaderLite:active{transform:translateY(1px);}
+#loader [hidden]{display:none;}
+</style>
+<script>
+/* 开机守门(普通脚本,不依赖 three):
+   1) 这台设备打不开 3D(WebGL 起不来)→ 换成家长看得懂的一句话,不留白屏;
+   2) 约 20 秒还没进场(网慢、脚本没下完)→ 提示"还在加载"并给重试按钮;之后真加载好了,提示跟着加载层一起消失。
+   只动加载层上的字和按钮,不碰游戏逻辑。 */
+(function(){
+  var lang='zh';try{lang=localStorage.getItem('qz_lang')||'zh';}catch(e){}
+  var T={
+    zh:{gl:'这台设备暂时打不开 3D 大陆',gl2:'同样的课在简版里都能玩，点下面「玩简版」',slow:'还在加载，网络有点慢…',slow2:'可以再等一会儿、重新加载，或者先玩简版',retry:'再试一次',reload:'重新加载',lite:'玩简版'},
+    en:{gl:'This device can\u2019t open the 3D world yet',gl2:'All the same lessons are in the simple version below',slow:'Still loading \u2014 the network is a bit slow\u2026',slow2:'Wait a little longer, reload, or play the simple version',retry:'Try again',reload:'Reload',lite:'Simple version'},
+    de:{gl:'Dieses Ger\u00e4t kann die 3D-Welt gerade nicht \u00f6ffnen',gl2:'Alle Lektionen gibt es auch in der einfachen Version unten',slow:'L\u00e4dt noch \u2013 das Netz ist etwas langsam\u2026',slow2:'Noch warten, neu laden oder die einfache Version spielen',retry:'Nochmal versuchen',reload:'Neu laden',lite:'Einfache Version'}
+  };
+  var t=T[lang]||T.zh, state='loading';   // loading → ok / nogl / slow
+  /* 简版 = 同目录 index.html(纯 2D,不要 WebGL、不要 importmap),带上原来的 ?ch/?all 参数 */
+  var LITE='index.html'+(location.search||'');
+  function show(msg,sub,btn){
+    var L=document.getElementById('loader');if(!L)return;
+    L.classList.remove('off');L.classList.add('stuck');
+    var m=document.getElementById('loaderMsg'),s=document.getElementById('loaderSub'),b=document.getElementById('loaderRetry'),l=document.getElementById('loaderLite');
+    if(m)m.textContent=msg;
+    if(s){s.textContent=sub;s.hidden=false;}
+    if(b){if(btn){b.textContent=btn;b.hidden=false;b.onclick=function(){location.reload();};}else b.hidden=true;}
+    if(l){l.textContent=t.lite;l.hidden=false;l.onclick=function(){location.href=LITE;};}
+  }
+  window.__qzBoot={
+    ok:function(){if(state==='nogl')return;state='ok';},
+    noGL:function(){state='nogl';show(t.gl,t.gl2,t.retry);},
+    state:function(){return state;}
+  };
+  /* 3) 浏览器不认 importmap(Safari<16.4、微信 X5、旧 WebView):下面的 module 整段不会执行、也不报错,
+        不拦的话会转 20 秒再被误报成"网络慢"。先问一句,不认就直接给简版出口,不给"重新加载"。 */
+  var IM=!!(window.HTMLScriptElement&&HTMLScriptElement.supports&&HTMLScriptElement.supports('importmap'));
+  if(!IM){state='nogl';show(t.gl,t.gl2,null);}
+  /* module 脚本本身没加载成(three 没下来、模块解析失败)也当作打不开,不等 20 秒 */
+  window.addEventListener('error',function(e){
+    var el=e&&e.target;
+    if(state==='loading'&&el&&el.tagName==='SCRIPT'&&el.type==='module'){state='nogl';show(t.gl,t.gl2,t.retry);}
+  },true);
+  setTimeout(function(){if(state!=='loading')return;state='slow';show(t.slow,t.slow2,t.reload);},20000);
+})();
+</script>
 <div id="hint">↑↓←→ 走路 · 拖动看风景 · 滚轮放大缩小</div>
 <div id="fileWarn" style="display:none;position:fixed;top:52px;left:50%;transform:translateX(-50%);
   background:#FFF3D6;color:#9a6b1a;font-size:13px;font-weight:700;padding:8px 16px;border-radius:12px;
@@ -402,7 +464,7 @@
 <main>
   <div class="screen on" id="world">
     <div id="plaza">
-      <img id="plazaBg" src="assets/scene_plaza.png?v=3" alt="">
+      <img id="plazaBg" data-src="assets/scene_plaza.png?v=3" alt=""><!-- 首屏减重:2.9MB,合并态下这块屏不出现,真要显示时才加载(见 lazyBg) -->
       <div id="hotspots"></div>
       <img id="rab" alt="">
       <div id="fade"></div>
@@ -416,7 +478,7 @@
   </div>
   <div class="screen" id="inside">
     <div id="insideWrap">
-      <img id="insideBg" src="assets/scene_inside.png?v=3" alt="">
+      <img id="insideBg" data-src="assets/scene_inside.png?v=3" alt=""><!-- 首屏减重:2.7MB,同上 -->
       <div id="ifade"></div>
     </div>
     <div id="iHint">哇！你现在和棋子一样大——这里就是大决战的战场！</div>
@@ -435,21 +497,23 @@
 <div id="modal"><div class="box" id="modalBody"></div></div>
 <!--/QZ_APP-->
 </div>
-<script src="levels5k.js?v=5"></script>
+<script src="levels5k.js?v=6"></script>
 <script src="levels_dan.js?v=1" onerror="this.remove()"></script>
 <script src="levels_demos.js?v=2" onerror="this.remove()"></script>
 <script src="assets/voice/manifest.js?v=14"></script>
 <script>window.QZ_EMBED=true;</script>
 <script src="i18n_ui.js?v=3" onerror="this.remove()"></script>
 <script src="qz-profile.js?v=2"></script>
-<script src="qz-engine.js?v=10"></script>
+<script src="qz-engine.js?v=11"></script>
 <!-- 长卷地图已退役(拍板:世界本身就是地图)。文件保留作草稿,不再加载;
      引擎 buildMap() 检测不到 QZMAP 自动回落章节卡列表。index.html 离线版按拍板保留原样。 -->
 <script src="world_decor.js?v=1" onerror="this.remove()"></script>
 <script src="world_board.js?v=2" onerror="this.remove()"></script>
 <script src="world_zones.js?v=2" onerror="this.remove()"></script>
-<script src="qz-class3d.js?v=3" onerror="this.remove()"></script>
-<script src="assets/models/bunny_glb.js"></script>
+<script src="qz-class3d.js?v=4" onerror="this.remove()"></script>
+<!-- 首屏减重:这份 1.1MB 的内嵌兔子只给 file:// 用(双击打开时浏览器不让读 glb 文件);
+     http(s) 下直接读 glb,两个 glb 都拉不到时才由 tryB64 临时去取它 -->
+<script>if(location.protocol==='file:')document.write('<script src="assets/models/bunny_glb.js"><\/script>');</script>
 <script src="assets/models/bunny_tail.js"></script>
 <!-- three 加载:http/https 走本地 vendor;file:// 下 Chrome 禁止模块跨文件 import,走 CDN 兜底(有意保留,保双击能开) -->
 <script>(function(){var b=/^https?:$/.test(location.protocol)?'./vendor/three/':'https://cdn.jsdelivr.net/npm/three@0.165.0/';document.write('<script type="importmap">{"imports":{"three":"'+b+'build/three.module.js","three/addons/":"'+b+'examples/jsm/"}}<\/script>');})();</script>
@@ -462,7 +526,9 @@ const DRACO=new DRACOLoader().setDecoderPath(/^https?:$/.test(location.protocol)
 const newGLTF=()=>new GLTFLoader().setDRACOLoader(DRACO);
 
 const app=document.getElementById('app');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+/* WebGL 起不来(老设备、被禁用)时 three 会在这里抛错:先把加载层换成给家长看的提示,再照常抛出去 */
+const renderer=(()=>{try{return new THREE.WebGLRenderer({antialias:true});}
+  catch(e){if(window.__qzBoot)window.__qzBoot.noGL();throw e;}})();
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
@@ -612,12 +678,20 @@ for(let i=0;i<14;i++){
 }
 
 let CFG={voice:1,ambient:.18,ui:.7};
-try{CFG={...CFG,...JSON.parse(localStorage.getItem('qz3_vol')||'{}')};}catch(e){}
+/* 读存档保护:音量存坏了(不是 0~1 的数)就用默认值,别把 NaN 喂给音频 */
+try{const sv=JSON.parse(localStorage.getItem('qz3_vol')||'{}');
+  if(sv&&typeof sv==='object')for(const k of ['voice','ambient','ui']){
+    const n=sv[k];if(typeof n==='number'&&isFinite(n)&&n>=0&&n<=1)CFG[k]=n;}
+}catch(e){}
+/* 进度存档只认"对象";读不到、存坏了都当成空进度,不白屏 */
+function readProg(){
+  try{const v=JSON.parse(localStorage.getItem('qz2_prog'));
+    return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch(e){return {};}}
 const $=id=>document.getElementById(id);
 $('vVoice').value=CFG.voice*100;$('vAmb').value=CFG.ambient*100;$('vUi').value=CFG.ui*100;
 $('volBtn').onclick=()=>{const v=$('vol');v.style.display=v.style.display==='block'?'none':'block';};
 let actx=null,ambGain=null;
-function saveCfg(){localStorage.setItem('qz3_vol',JSON.stringify(CFG));}
+function saveCfg(){try{localStorage.setItem('qz3_vol',JSON.stringify(CFG));}catch(e){}}
 $('vVoice').oninput=e=>{CFG.voice=e.target.value/100;saveCfg();};
 try{$('vLang').value=localStorage.getItem('qz_lang')||'zh';}catch(e){}
 $('vLang').onchange=e=>{try{localStorage.setItem('qz_lang',e.target.value);}catch(err){}
@@ -710,7 +784,6 @@ if(window.VOICE_MANIFEST&&window.VOICE_MANIFEST.lines){VO3={};VO3L={};
 addEventListener('pointerdown',function unlock(){
   audioUnlocked=true;
   try{const a=new Audio();a.muted=true;a.play().catch(()=>{});}catch(e){}
-  try{speechSynthesis.resume();}catch(e){}
   removeEventListener('pointerdown',unlock);
 },{once:true});
 window.__stop3D=()=>{try{if(curAudio3)curAudio3.pause();}catch(e){}try{speechSynthesis.cancel();}catch(e){}};
@@ -721,15 +794,12 @@ function say3(t){
   window.__stop2D&&__stop2D();
   const lang=(()=>{try{return localStorage.getItem('qz_lang')||'zh';}catch(e){return 'zh';}})();
   const line=VO3L&&VO3L[t];
-  let file=VO3&&VO3[t],trText=null,trLang=null;
+  /* 配音红线:只播预生成的 mp3;缺音频就静默,不回落浏览器机器朗读 */
+  let file=VO3&&VO3[t];
   if(lang!=='zh'&&line&&line.tr&&line.tr[lang]){
     if(line.tr[lang].file)file=line.tr[lang].file;
-    else if(line.tr[lang].text){trText=line.tr[lang].text;trLang=lang;}
+    else if(line.tr[lang].text)file=null; // 该语言有译文却没有 mp3:静默,不拿中文配外文字幕
   }
-  if(trText){try{
-    const u=new SpeechSynthesisUtterance(trText);
-    u.lang=trLang==='de'?'de-DE':'en-US';u.rate=.9;u.volume=CFG.voice;
-    speechSynthesis.cancel();speechSynthesis.speak(u);return;}catch(e){}}
   if(file){try{
     if(curAudio3)curAudio3.pause();
     curAudio3=new Audio('assets/voice/'+file);
@@ -737,11 +807,9 @@ function say3(t){
     curAudio3.play().catch(()=>{});
     try{speechSynthesis.cancel();}catch(e){}
     return;}catch(e){}}
-  try{const u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=.8;u.pitch=1.05;u.volume=CFG.voice;
-    const vs=speechSynthesis.getVoices().filter(v=>/^zh/i.test(v.lang));
-    const pref=vs.find(v=>/Tingting|婷婷|Siri/i.test(v.name))||vs[0];
-    if(pref)u.voice=pref;
-    speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}
+  /* 没有 mp3:停掉上一句,保持安静 */
+  try{if(curAudio3)curAudio3.pause();}catch(e){}
+  try{speechSynthesis.cancel();}catch(e){}
 }
 
 const animBunnies=[];
@@ -985,7 +1053,13 @@ function adoptGLB(glb){
   hideLoader();
 }
 function tryB64(){
-  if(!window.BUNNY_GLB_B64||location.search.includes('noglb')){hideLoader();return;}
+  if(location.search.includes('noglb')){hideLoader();return;}
+  if(!window.BUNNY_GLB_B64){
+    /* http(s) 下内嵌兔子平时不加载;走到这里说明两个 glb 都没拉到,临时取一次(只取一次) */
+    if(location.protocol!=='file:'&&!tryB64.asked){tryB64.asked=true;
+      const sc=document.createElement('script');sc.src='assets/models/bunny_glb.js';
+      sc.onload=tryB64;sc.onerror=()=>hideLoader();document.head.appendChild(sc);return;}
+    hideLoader();return;}
   try{
     const bin=atob(window.BUNNY_GLB_B64);
     const buf=new Uint8Array(bin.length);
@@ -1138,7 +1212,8 @@ loadProp('panda',()=>{
 },'npc_panda.glb');
 let loaderHidden=false;
 function hideLoader(){if(loaderHidden)return;loaderHidden=true;
-  setTimeout(()=>{$('loader').classList.add('off');startIntro();},400);}
+  if(window.__qzBoot)window.__qzBoot.ok();
+  setTimeout(()=>{$('loader').classList.remove('stuck');$('loader').classList.add('off');startIntro();},400);}
 setTimeout(hideLoader,5000);
 
 /* ===== 开场:全屏黑幕只在兔子处开一个圆窗,镜头从高空俯冲到兔子背后 =====
@@ -1215,7 +1290,7 @@ if(typeof CH!=="undefined"&&CH.length){
     if(window.QDEMOS)CHDEF.forEach(d=>{if(QDEMOS[d[0]])d[1]+=QDEMOS[d[0]].length;});
   }
 }
-let prog={};try{prog=JSON.parse(localStorage.getItem("qz2_prog"))||{};}catch(e){}
+let prog=readProg();
 const chKeys=d=>Array.from({length:d[1]},(_,i)=>"c"+d[0]+"l"+(i+1));
 const chDone=d=>chKeys(d).filter(k=>prog[k]).length;
 const chComplete=d=>chDone(d)===d[1];
@@ -1333,8 +1408,10 @@ const stLabels=[];
 let goldRing=null;
 function dojoCredit(){
   const d=CHDEF[5];let fresh=false;
+  /* 写前先从磁盘重读合并:引擎(2D 课堂)另有一份内存副本,两边都整体覆盖同一个键,不合并会互相抹掉 */
+  const disk=readProg();Object.keys(disk).forEach(k=>{if(disk[k])prog[k]=true;});
   chKeys(d).forEach(k=>{if(!prog[k]){prog[k]=true;fresh=true;}});
-  if(fresh){localStorage.setItem("qz2_prog",JSON.stringify(prog));refreshStations();}
+  if(fresh){try{localStorage.setItem("qz2_prog",JSON.stringify(prog));}catch(e){}refreshStations();}
   return fresh;
 }
 function refreshStations(){
@@ -1588,7 +1665,7 @@ window.QZ_HOST={
       /* 硬切回兔子身后 */
       camPos.set(player.position.x+Math.sin(camYaw)*camDist,camH(),player.position.z+Math.cos(camYaw)*camDist);
       cam.position.copy(camPos);}
-    try{prog=JSON.parse(localStorage.getItem('qz2_prog'))||{};refreshStations();}catch(e){}},
+    try{prog=readProg();refreshStations();}catch(e){}},
   romp(backKey){this.hide();
     ROMP.on=true;ROMP.back=backKey||'';ROMP.popped=0;ROMP.done=false;
     ROMP.list.length=0;rompGroup.clear();startRomp();}
@@ -1596,7 +1673,7 @@ window.QZ_HOST={
 /* 3D 课堂安装(qz-class3d.js 提供;缺文件时 CLASS3D=null,自动回落旧 2D 浮层) */
 var CLASS3D=null;
 if(window.QZ_CLASS3D_INSTALL){
-  try{CLASS3D=QZ_CLASS3D_INSTALL({THREE,scene,propInstance,loadProp,bunnyGLB,tintBunny});
+  try{CLASS3D=QZ_CLASS3D_INSTALL({THREE,scene,propInstance,loadProp,bunnyGLB,tintBunny,cam});
     window.__c3dbg=(m)=>CLASS3D._dbg(m);
     window.__c3=(c,r)=>{const p=CLASS3D.gridToWorld(c,r);if(!p)return null;
       cam.updateMatrixWorld(true);
@@ -1799,13 +1876,21 @@ if(/[?&]matcap=1/.test(location.search)){
 /* 大出口(所有人都有,不只 ?all=1):课程浮层一开就出现,点了回 3D 世界 */
 {const bigExit=document.createElement('button');bigExit.id='bigExit';
  /* 调研定式(Toca Life World):出口画的是"目的地"——雪村大道缩略图,不是抽象X */
- bigExit.innerHTML='<img src="assets/scene_plaza.png?v=3" alt="" style="width:30px;height:30px;'+
+ /* 首屏减重:缩略图用的是 2.9MB 的整张大图,改成课程浮层第一次打开时才加载(没加载完先显淡蓝圆) */
+ bigExit.innerHTML='<img data-src="assets/scene_plaza.png?v=3" alt="" style="width:30px;height:30px;background:#DCEAF4;'+
    'border-radius:50%;object-fit:cover;flex:none" onerror="this.outerHTML=\'<span class=em>🏡</span>\'">'+tt('回大路');
  bigExit.onclick=()=>{if(window.QZ)QZ.close();};
  document.body.appendChild(bigExit);
  const qa=document.getElementById('qzApp');
- new MutationObserver(()=>{bigExit.style.display=qa.classList.contains('on')?'flex':'none';})
-   .observe(qa,{attributes:true,attributeFilter:['class']});
+ /* 用到才加载:浮层开着时,出口缩略图、以及(万一)露出来的 2D 广场/内部背景,才把 data-src 换成 src */
+ const lazyBg=()=>{if(!qa.classList.contains('on'))return;
+   const need=[bigExit.querySelector('img[data-src]')];
+   [['world','plazaBg'],['inside','insideBg']].forEach(([scr,id])=>{
+     const sEl=document.getElementById(scr);if(sEl&&sEl.classList.contains('on'))need.push(document.getElementById(id));});
+   need.forEach(im=>{if(im&&im.dataset&&im.dataset.src){im.src=im.dataset.src;delete im.dataset.src;}});};
+ const mo=new MutationObserver(()=>{bigExit.style.display=qa.classList.contains('on')?'flex':'none';lazyBg();});
+ mo.observe(qa,{attributes:true,attributeFilter:['class']});
+ ['world','inside'].forEach(id=>{const el=document.getElementById(id);if(el)mo.observe(el,{attributes:true,attributeFilter:['class']});});
  /* 章节卡外的空白也当出口:点到 #map 裸底=想回世界 */
  const mapEl=document.getElementById('map');
  if(mapEl)mapEl.addEventListener('click',e=>{if(e.target===mapEl&&window.QZ)QZ.close();});}
@@ -1825,7 +1910,7 @@ if(/[?&]all=1/.test(location.search)&&typeof CH!=='undefined'&&CH.length){
   const mapped=new Set();QA_WORLDS.forEach(w=>w.ids.forEach(i=>mapped.add(i)));
   const orphans=CH.filter(c=>!mapped.has(c.id));           // 没归世界的章兜底展示,绝不吞
   if(orphans.length)QA_WORLDS.push({n:'📦 其他(未归世界)',sub:'',ids:orphans.map(c=>c.id),tp:null,c:'#BBB'});
-  const diskProg=()=>{try{return JSON.parse(localStorage.getItem('qz2_prog'))||{};}catch(e){return{};}};
+  const diskProg=readProg;
 
   /* —— 顶部工具条:🗺 总览按钮 + 分世界下拉 —— */
   const wrap=document.createElement('div');
@@ -2274,8 +2359,8 @@ if(!/[?&]board=0/.test(location.search)&&window.WORLD_BOARD){
     const goStart=()=>{player.position.set(46,0,4);target.copy(player.position);camYaw=-1.85;};
     goStart();setTimeout(goStart,1200);
   }
-  /* 🧭 一键下一景(评审用,随 board 旗):循环跳四景,防迷路 */
-  {
+  /* 🧭 一键下一景(评审用,随 board 旗):循环跳四景,防迷路。只在 ?all=1 评审模式出现 */
+  if(/[?&]all=1/.test(location.search)){
     const VIEWS=[['雪村广场',0,18,1.26],['大道起点',46,4,-1.85],['试炼浮岛',-138,-12,0],['天空城',130,-16,-0.24]];
     let vi=0;
     const jb=document.createElement('button');

@@ -19,13 +19,49 @@
   var LIST_KEY = "qz_profiles", ACT_KEY = "qz_profile_active";
   var AVATARS = ["🐰", "🐼", "🦊", "🐻", "🐨", "🐯", "🦁", "🐸"];
 
-  var ls = window.localStorage;
-  var rawGet = ls.getItem.bind(ls), rawSet = ls.setItem.bind(ls), rawDel = ls.removeItem.bind(ls);
+  /* ---- 存档读写保护(只加保护,键名和格式不变) ----
+     有些浏览器的隐私模式、被禁用 Cookie 的页面,一碰 window.localStorage 就抛错。
+     那时换成一个只在内存里的替身:游戏照常能玩,只是这次的进度关掉页面就没了。
+     QZP.storageOK=false 表示正处在这种状态。 */
+  function memStore() {
+    var d = Object.create(null);
+    return {
+      getItem: function (k) { k = String(k); return k in d ? d[k] : null; },
+      setItem: function (k, v) { d[String(k)] = String(v); },
+      removeItem: function (k) { delete d[String(k)]; },
+      clear: function () { d = Object.create(null); },
+      key: function (i) { var ks = Object.keys(d); return i < ks.length ? ks[i] : null; },
+      get length() { return Object.keys(d).length; },
+      __keys: function () { return Object.keys(d); }
+    };
+  }
+  var ls = null, storageOK = true;
+  try { ls = window.localStorage; ls.getItem(LIST_KEY); } catch (e) { ls = null; }
+  if (!ls) {
+    storageOK = false;
+    ls = memStore();
+    /* 让页面里其余直接写 localStorage.xxx 的代码也落到替身上;换不掉也没关系,各处自己还有 try */
+    try { Object.defineProperty(window, "localStorage", { value: ls, configurable: true, writable: true }); } catch (e) {}
+    try { console.warn("[存档] 这个浏览器现在不让网页存东西(可能是隐私模式),本次进度只保存在内存里"); } catch (e) {}
+  }
+  var _get = ls.getItem.bind(ls), _set = ls.setItem.bind(ls), _del = ls.removeItem.bind(ls);
+  /* 档案模块自己用的读写:读失败当没有,写失败(存满了、隐私模式)不抛错 */
+  function rawGet(k) { try { return _get(k); } catch (e) { return null; } }
+  function rawSet(k, v) { try { _set(k, v); return true; } catch (e) { return false; } }
+  function rawDel(k) { try { _del(k); } catch (e) {} }
 
   function readList() {
     try {
       var l = JSON.parse(rawGet(LIST_KEY) || "null");
-      if (l && l.length) return l;
+      /* 坏数据保护:必须是数组,每一项必须是带数字 id 的对象;名字头像缺了就补默认(只在内存里补) */
+      if (Array.isArray(l)) {
+        l = l.filter(function (p) { return p && typeof p === "object" && typeof p.id === "number" && isFinite(p.id); });
+        l.forEach(function (p, i) {
+          if (typeof p.name !== "string" || !p.name) p.name = "小棋手" + (i ? i + 1 : "");
+          if (typeof p.avatar !== "string" || !p.avatar) p.avatar = AVATARS[i % AVATARS.length];
+        });
+        if (l.length) return l;
+      }
     } catch (e) {}
     return [{ id: 0, name: "小棋手", avatar: "🐰" }];
   }
@@ -42,14 +78,15 @@
   /* ---- 劫持:只对进度类键改写,其余原样。
          ⚠️ 必须打在 Storage.prototype 上——给 localStorage 实例赋函数会被浏览器
          当成"存一条键值",在存储里留下 getItem/setItem/removeItem 三条垃圾。 ---- */
-  var SP = Object.getPrototypeOf(ls);   // Storage.prototype
-  SP.getItem = function (k) { return rawGet(isNS(k) ? pfx(k) : k); };
-  SP.setItem = function (k, v) { return rawSet(isNS(k) ? pfx(k) : k, v); };
-  SP.removeItem = function (k) { return rawDel(isNS(k) ? pfx(k) : k); };
+  var SP = storageOK ? Object.getPrototypeOf(ls) : ls;   // Storage.prototype;内存替身就直接改它自己
+  /* 这三个保持原来的行为(包括写满时照常抛错),调用方各自兜 */
+  SP.getItem = function (k) { return _get(isNS(k) ? pfx(k) : k); };
+  SP.setItem = function (k, v) { return _set(isNS(k) ? pfx(k) : k, v); };
+  SP.removeItem = function (k) { return _del(isNS(k) ? pfx(k) : k); };
   /* clear() 兜底:即使有人调用,也只清当前档案的键,绝不抹掉别的孩子和档案列表 */
   SP.clear = function () {
     var a = activeId(), pre = a === 0 ? "" : "p" + a + ":";
-    Object.keys(ls).forEach(function (k) {
+    (ls.__keys ? ls.__keys() : Object.keys(ls)).forEach(function (k) {
       if (k === LIST_KEY || k === ACT_KEY) return;
       var bare = pre && k.indexOf(pre) === 0 ? k.slice(pre.length) : (pre ? null : k);
       if (bare && isNS(bare)) rawDel(k);
@@ -58,12 +95,13 @@
   /* 清掉早期版本可能写脏的三条(函数源码被当值存了) */
   ["getItem", "setItem", "removeItem"].forEach(function (k) {
     var v = rawGet(k);
-    if (v && v.indexOf("function") === 0) rawDel(k);
+    if (typeof v === "string" && v.indexOf("function") === 0) rawDel(k);
   });
 
   function nextId(l) { var m = 0; l.forEach(function (p) { if (p.id > m) m = p.id; }); return m + 1; }
 
   var QZP = {
+    storageOK: storageOK,
     list: readList,
     activeId: activeId,
     active: function () {

@@ -2,7 +2,21 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const LSP="qz2_prog", LSS="qz2_start", LST="qz2_task_";
-let prog={}; try{prog=JSON.parse(localStorage.getItem(LSP))||{};}catch(e){prog={};}
+/* 存档读写保护(只加保护,键名和格式不变):
+   隐私模式下 localStorage 可能一碰就抛错,存满了写入也会抛错,存档内容也可能被写坏。
+   一律兜住:读不到或读到坏数据就回默认值,写不进去就只留在内存里,绝不让页面白屏。 */
+const LS={
+  get(k){try{return localStorage.getItem(k);}catch(e){return null;}},
+  set(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}},
+  del(k){try{localStorage.removeItem(k);}catch(e){}},
+  /* 读一个 JSON 对象;不是对象(坏数据、数组、数字、字符串)一律当没有 */
+  obj(k){try{const v=JSON.parse(localStorage.getItem(k));return v&&typeof v==="object"&&!Array.isArray(v)?v:null;}catch(e){return null;}}
+};
+let prog=LS.obj(LSP)||{};
+/* 存档单一真源:3D 世界(world3d.html 的 dojoCredit)和本引擎各持一份 prog 内存副本、都整体写同一个键。
+   写前先把磁盘上已为 true 的键并进来,读入口(openChapter/openLevel)也同步一次,谁也抹不掉谁。 */
+function syncProg(){const d=LS.obj(LSP);if(d)Object.keys(d).forEach(k=>{if(d[k])prog[k]=true;});}
+function persistProg(){syncProg();return LS.set(LSP,JSON.stringify(prog));}
 /* 一次性存档迁移:ch32/33/34 十七关点杀题棋理错误(白棋用对角"连接",围棋里不成立),
    已整章重造 6/5/6 关 → 8/8/8 关。关卡键是"章内序号",章长变了老进度会错位,
    会让重造后的演示课直接显示已通关。所以清掉这三章的旧进度,让孩子重新走一遍(内容是新的)。 */
@@ -16,8 +30,13 @@ let prog={}; try{prog=JSON.parse(localStorage.getItem(LSP))||{};}catch(e){prog={
     localStorage.setItem(MK,"1");
   }catch(e){}
 })();
-if(!localStorage.getItem(LSS)) localStorage.setItem(LSS, Date.now());
-const dayIdx=Math.min(90, Math.floor((Date.now()-(+localStorage.getItem(LSS)))/864e5)+1);
+/* 90 天日历起点:没有、读不到或不是正常时间戳,都按「今天是第 1 天」算 */
+const dayIdx=(()=>{
+  let st=+LS.get(LSS);
+  if(!isFinite(st)||st<=0){st=Date.now();LS.set(LSS,st);}
+  const d=Math.min(90, Math.floor((Date.now()-st)/864e5)+1);
+  return isFinite(d)&&d>=1?d:1;
+})();
 let soundOn=true, lastMsg="", koPt=null, passCnt=0, capMe=0, capAI=0;
 
 function nbrs(c,r,N){const a=[];if(c>0)a.push([c-1,r]);if(c<N-1)a.push([c+1,r]);if(r>0)a.push([c,r-1]);if(r<N-1)a.push([c,r+1]);return a;}
@@ -255,26 +274,19 @@ function draw(){
 }
 
 /* ---------- 声音 ---------- */
-let voiceList=[],chosenVoice=localStorage.getItem("qz2_voice")||"";
-function loadVoices(){try{voiceList=speechSynthesis.getVoices().filter(v=>/^zh|cmn/i.test(v.lang));}catch(e){}}
-try{speechSynthesis.onvoiceschanged=loadVoices;loadVoices();}catch(e){}
-function bestVoice(){
-  if(chosenVoice){const v=voiceList.find(v=>v.name===chosenVoice);if(v)return v;}
-  for(const p of["Tingting","婷婷","Siri","Enhanced","Premium","Natural","Xiaoxiao","晓晓","Meijia","美嘉","Yu-shu"]){
-    const v=voiceList.find(v=>v.name.includes(p));if(v)return v;}
-  return voiceList[0]||null;
-}
+/* 配音红线:只播预生成的 mp3。没有 mp3 的句子一律静默(字幕照出、流程照走),
+   不再回落浏览器机器朗读;选机器嗓音的函数和家长区的音色下拉也一并去掉。
+   下面仅剩的 speechSynthesis.cancel() 只用来掐掉别处可能残留的机器音,不会出声。 */
 let VOMAP=null,VOID=null,curAudio=null;
 /* 语音语言：zh / en / de（localStorage 键 qz_lang，与 3D 版共用） */
-let LANG=localStorage.getItem("qz_lang")||"zh";
+let LANG=LS.get("qz_lang")||"zh";
 if(LANG!=="zh"&&LANG!=="en"&&LANG!=="de")LANG="zh";
-/* 手机音频解锁：首次触摸前 say() 直接丢弃；首次 pointerdown 播一次静音并 resume TTS */
+/* 手机音频解锁：首次触摸前 say() 直接丢弃；首次 pointerdown 播一次静音 */
 let audioUnlocked=false;
 window.addEventListener("pointerdown",()=>{
   if(audioUnlocked)return;audioUnlocked=true;
   try{const a=new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
     a.volume=0;a.play().catch(()=>{});}catch(e){}
-  try{speechSynthesis.resume();}catch(e){}
 },{once:true,capture:true});
 function loadVO(j){if(!j||!j.lines)return;VOMAP={};VOID={};
   Object.entries(j.lines).forEach(([id,o])=>{VOID[id]=o;if(o.lang==="zh")VOMAP[o.text]=o;});}
@@ -282,12 +294,11 @@ if(window.VOICE_MANIFEST)loadVO(window.VOICE_MANIFEST);
 else fetch("assets/voice/manifest.json").then(r=>r.ok?r.json():null).then(loadVO).catch(()=>{});
 function playVO(f){try{if(curAudio)curAudio.pause();curAudio=new Audio("assets/voice/"+f);
   curAudio.play().catch(()=>{});try{speechSynthesis.cancel();}catch(e){}return true;}catch(e){return false;}}
-function tts(t,lg){
+/* 缺音频时静默:只停掉上一句(免得旧声音配新字幕),不出任何声音 */
+function hush(){
   try{if(curAudio)curAudio.pause();}catch(e){}
-  try{const u=new SpeechSynthesisUtterance(t);u.lang=lg||"zh-CN";u.rate=0.8;u.pitch=1.02;
-    if(!lg||lg==="zh-CN"){const v=bestVoice();if(v)u.voice=v;}
-    speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
-/* 播放一条 manifest 行：非中文优先 line.tr[LANG].file，再 tr[LANG].text 走 TTS，否则回落中文 mp3 */
+  try{speechSynthesis.cancel();}catch(e){}}
+/* 播放一条 manifest 行：非中文优先 line.tr[LANG].file；该语言有译文却没有 mp3 时静默；没有译文则回落中文 mp3 */
 /* 文字三语:优先复用 manifest 里的 tr 译文(声画同源),短语走 QZ_T2 词典;找不到回落中文 */
 function t2(x){
   if(LANG==="zh"||!x)return x;
@@ -302,7 +313,7 @@ function playLine(line){
   if(LANG!=="zh"&&line.tr&&line.tr[LANG]){
     const tr=line.tr[LANG];
     if(tr.file&&playVO(tr.file))return true;
-    if(tr.text){tts(tr.text,LANG==="en"?"en-US":"de-DE");return true;}
+    if(tr.text){hush();return true;}
   }
   return line.file?playVO(line.file):false;
 }
@@ -312,7 +323,7 @@ function sayId(id){if(!soundOn||!audioUnlocked)return;if(VOID&&VOID[id]){window.
 function say(t){if(!soundOn||!audioUnlocked)return;
   window.__stop3D&&__stop3D();
   if(VOMAP&&VOMAP[t]&&playLine(VOMAP[t]))return;
-  tts(t,"zh-CN");}
+  hush();}
 let actx=null;
 function tone(seq){if(!soundOn)return;
   try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let t=actx.currentTime;
@@ -342,11 +353,11 @@ function confetti(){
 }
 const starCount=()=>Object.values(prog).filter(Boolean).length;
 const refreshStars=()=>$("stars").textContent=starCount(); /* 星星图标由 CSS ::before 出(伪3D 物料) */
-function saveWin(){prog[cur.key]=true;localStorage.setItem(LSP,JSON.stringify(prog));refreshStars();}
+function saveWin(){prog[cur.key]=true;persistProg();refreshStars();}
 
 /* ---------- 地图 ---------- */
 /* 体验模式（家长区开关）：qz2_freeplay=1 时所有章节/关卡视为解锁，但不改 prog、不发星星 */
-function freeplay(){return localStorage.getItem("qz2_freeplay")==="1"||/[?&]all=1/.test(location.search);}
+function freeplay(){return LS.get("qz2_freeplay")==="1"||/[?&]all=1/.test(location.search);}
 function chapDone(i){return CH[i].levels.every(l=>prog[l.key]);}
 /* 章节知识点对应的常见级位区间徽章 */
 function chRank(id){
@@ -522,7 +533,7 @@ function start(lv){
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let seqNo=0,usedHint=false,rompOffer=false;
 function sessGet(){
-  let s;try{s=JSON.parse(localStorage.getItem("qz2_sess"))||{};}catch(e){s={};}
+  let s=LS.obj("qz2_sess")||{};
   if(!s.last||Date.now()-s.last>1800000)s={wins:0,t0:Date.now()};
   if(!s.t0)s.t0=Date.now();
   return s;
@@ -542,13 +553,17 @@ function moonDue(){
   s.moonAt=Date.now();sessSave(s);
   return true;
 }
-function praiseState(){try{return JSON.parse(localStorage.getItem("qz2_praise"))||{recent:[],streak:0};}catch(e){return{recent:[],streak:0};}}
+function praiseState(){
+  const st=LS.obj("qz2_praise")||{recent:[],streak:0};
+  if(!Array.isArray(st.recent))st.recent=[];
+  if(typeof st.streak!=="number"||!isFinite(st.streak))st.streak=0;
+  return st;}
 function savePraise(st){try{localStorage.setItem("qz2_praise",JSON.stringify(st));}catch(e){}}
 async function waitSpeech(cap){
   const t0=performance.now();
   while(performance.now()-t0<(cap||9000)){
     let talking=false;
-    try{talking=(curAudio&&!curAudio.paused&&!curAudio.ended)||(window.speechSynthesis&&speechSynthesis.speaking);}catch(e){}
+    try{talking=!!(curAudio&&!curAudio.paused&&!curAudio.ended);}catch(e){}
     if(!talking)return;
     await wait(150);
   }
@@ -621,7 +636,7 @@ async function winSequence(text,vo){
   const mySeq=seqNo,myKey=cur.key,t0=performance.now();
   const dead=()=>seqNo!==mySeq||!over||!cur||cur.key!==myKey;
   const firstClear=!prog[cur.key];
-  if(firstClear){prog[cur.key]=true;try{localStorage.setItem(LSP,JSON.stringify(prog));}catch(e){}}
+  if(firstClear){prog[cur.key]=true;persistProg();}
   let bonus=null;
   if(firstClear&&cur.ch&&EPMAP[cur.ch.id]&&cur.ch.levels.every(l=>prog[l.key]))
     bonus="🎬 整章通关！今晚的奖励：看《小喵小汪学围棋》第 "+EPMAP[cur.ch.id]+" 集！";
@@ -1094,13 +1109,13 @@ function applyLang2D(){
   if(cur&&$("game").classList.contains("on"))msg(lastMsg,false);
 }
 window.__qzApplyLang=()=>{
-  LANG=localStorage.getItem("qz_lang")||"zh";
+  LANG=LS.get("qz_lang")||"zh";
   if(LANG!=="zh"&&LANG!=="en"&&LANG!=="de")LANG="zh";
   applyLang2D();
 };
 $("langBtn").onclick=()=>{
   LANG=LANG==="zh"?"en":LANG==="en"?"de":"zh";
-  localStorage.setItem("qz_lang",LANG);
+  LS.set("qz_lang",LANG);
   applyLang2D();
   window.__applyLang&&__applyLang(); /* 同步 3D 世界牌子 */
 };
@@ -1109,8 +1124,12 @@ window.addEventListener("resize",()=>{if(cur&&$("game").classList.contains("on")
 
 /* ---------- 家长区：今日任务 + 名词卡 + 免费宝库 ---------- */
 const EP=Math.min(30,Math.ceil(dayIdx/3));
+/* 今日三项打卡:读不到或不是数组就当都没打 */
+function taskState(){
+  let tk=null;try{tk=JSON.parse(LS.get(LST+dayIdx)||"null");}catch(e){}
+  return Array.isArray(tk)?tk:[false,false,false];}
 function parentHTML(){
-  const tk=JSON.parse(localStorage.getItem(LST+dayIdx)||"[false,false,false]");
+  const tk=taskState();
   const isWeekend=[0,6].includes(new Date().getDay());
   return `
   <h3>🎯 30 秒了解这个游戏</h3>
@@ -1125,14 +1144,6 @@ function parentHTML(){
     <button class="big blue" id="freeBtn" style="flex:1;min-width:200px">${freeplay()?"🔒 恢复闯关模式":"🔓 体验模式：打开所有锁"}</button>
   </div>
   <p style="color:#999;font-size:13px">体验模式只是临时打开所有章节的锁，方便家长快速浏览内容；不改变孩子的闯关进度，也不会发星星。</p>
-  <h3>🔈 语音音色</h3>
-  <div class="task" style="flex-wrap:wrap">
-    <select id="voiceSel" style="flex:1;min-width:160px;font-size:15px;padding:6px;border-radius:8px;border:2px solid #F4C879">
-      ${voiceList.length?voiceList.map(v=>`<option value="${v.name}" ${bestVoice()&&bestVoice().name===v.name?"selected":""}>${v.name}</option>`).join(""):"<option value=''>（此浏览器未提供中文语音）</option>"}
-    </select>
-    <button class="big alt" id="voiceTry" style="padding:8px 14px;font-size:15px">▶ 试听</button>
-  </div>
-  <p style="color:#999;font-size:13px">机器音难听是浏览器默认音色的锅——换一个试试。Mac 推荐婷婷(Tingting)或 Siri 音色（系统设置→辅助功能→朗读内容里可下载更自然的增强音色）。</p>
   <h3>🔤 给家长的名词小卡</h3>
   <div class="gloss"><b>级（K）和段（D）</b>：围棋水平从 30级(30K) 开始，数字越小越强：30K→1K，然后业余初段(1D)→7段。<b>25K ≈ 启蒙毕业线</b>：会数气吃子、能正确下完一盘棋——就是这 90 天的目标。</div>
   <div class="gloss"><b>吃子棋</b>：谁先提掉对方一颗棋子谁赢，全世界儿童围棋启蒙的标准第一课。围地和胜负规则等 25K 以后再教。</div>
@@ -1151,13 +1162,11 @@ $("parentBtn").onclick=()=>{
   $("modalBody").innerHTML=parentHTML();
   $("modal").classList.add("on");
   ["t0","t1","t2"].forEach((id,i)=>{$(id).onchange=()=>{
-    const tk=JSON.parse(localStorage.getItem(LST+dayIdx)||"[false,false,false]");
-    tk[i]=$(id).checked;localStorage.setItem(LST+dayIdx,JSON.stringify(tk));};});
-  $("voiceSel").onchange=()=>{chosenVoice=$("voiceSel").value;localStorage.setItem("qz2_voice",chosenVoice);};
-  $("voiceTry").onclick=()=>say("小兔子你好呀！我是糯糯，深呼吸，慢慢想，糯糯陪着你。");
+    const tk=taskState();
+    tk[i]=$(id).checked;LS.set(LST+dayIdx,JSON.stringify(tk));};});
   $("freeBtn").onclick=()=>{
-    if(freeplay())localStorage.removeItem("qz2_freeplay");
-    else localStorage.setItem("qz2_freeplay","1");
+    if(freeplay())LS.del("qz2_freeplay");
+    else LS.set("qz2_freeplay","1");
     $("freeBtn").textContent=freeplay()?"🔒 恢复闯关模式":"🔓 体验模式：打开所有锁";
     if($("map").classList.contains("on"))buildMap();
     if($("world").classList.contains("on"))buildHotspots();
@@ -1308,15 +1317,15 @@ $("ttl").onclick=()=>{
   tapN=0;
   if(FLAT.some(l=>!prog[l.key])){
     FLAT.forEach(l=>prog[l.key]=true);
-    localStorage.setItem(LSP,JSON.stringify(prog));
+    LS.set(LSP,JSON.stringify(prog));
     refreshStars();buildMap();confetti();say("家长模式：全部关卡已解锁");
   }else{
     /* ⚠️ 绝不能用 localStorage.clear():会连别的孩子的档案、档案列表、语言音量一起抹掉。
        只清「当前这个孩子」的进度键。 */
     const who=(window.QZP&&QZP.active&&QZP.active().name)||"这个孩子";
     if(confirm("将清零【"+who+"】的全部进度，从第一关重新开始。\n（其他孩子的存档不受影响）\n\n确定吗？")){
-      [LSP,LSS,"qz2_freeplay","qz2_sess","qz2_praise"].forEach(k=>localStorage.removeItem(k));
-      for(let d=0;d<400;d++)localStorage.removeItem(LST+d);
+      [LSP,LSS,"qz2_freeplay","qz2_sess","qz2_praise"].forEach(k=>LS.del(k));
+      for(let d=0;d<400;d++)LS.del(LST+d);
       location.reload();
     }
   }
@@ -1326,6 +1335,7 @@ if(window.QZ_EMBED){
   /* 合并态:不自启,由 3D 世界经 window.QZ 召唤浮层 */
   window.QZ={
     openChapter(n){
+      syncProg();
       /* n 优先按章节 id 解析(21/71 等稀疏 id),找不到才按 1 基序号 */
       let ci=CH.findIndex(c=>c.id===+n);
       if(ci<0)ci=Math.min(Math.max((+n||1)-1,0),CH.length-1);
@@ -1334,6 +1344,7 @@ if(window.QZ_EMBED){
       show("map");
     },
     openLevel(k){
+      syncProg();
       const lv=FLAT.find(l=>l.key===k);
       if(window.QZ_HOST)QZ_HOST.show();
       if(lv)start(lv);else show("map");
